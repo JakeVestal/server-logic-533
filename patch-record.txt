@@ -12,3 +12,4 @@
 533serverlogic-012-use-venv.patch
 533serverlogic-014-cleanup-leftovers.patch
 533serverlogic-015-pid-kill.patch
+533serverlogic-016-disclaimer-wait.patch

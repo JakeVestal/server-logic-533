@@ -86,6 +86,10 @@ if (( ready == 0 )); then
   exit 1
 fi
 
+# Allow time for paper trading disclaimer dialog to be accepted
+log "Waiting 15s for disclaimer dialogs to clear..."
+sleep 15
+
 log "Running price update..."
 if ! pct exec "$CTID" -- /opt/trading/venv/bin/python /opt/trading/update_prices.py; then
   log "update_prices.py failed"
