@@ -105,3 +105,15 @@ def main():
                     "volume": bar.volume,
                 }
             info["price_history"] = history
+
+        updated = json.dumps(data, indent=2)
+        put_file(
+            owner, repo, "price_history.json", updated, sha,
+            f"Update price history {datetime.now():%Y-%m-%d}",
+        )
+        print(f"  pushed updated price_history.json")
+
+    ib.disconnect()
+
+if __name__ == "__main__":
+    main()
