@@ -10,6 +10,19 @@ MAX_WAIT_SECS=300   # 5 minutes for Gateway to become ready
 
 log() { echo "[$(date +'%H:%M:%S')] $*"; }
 
+dump_diagnostics() {
+  log "=== Diagnostics ==="
+  log "--- processes ---"
+  pct exec "$CTID" -- ps aux | grep -E 'Xvfb|ibc|java|gateway' | grep -v grep || log "(none)"
+  log "--- /tmp/ibg-start.log ---"
+  pct exec "$CTID" -- cat /tmp/ibg-start.log 2>/dev/null || log "(no start log)"
+  log "--- latest IBC log ---"
+  pct exec "$CTID" -- bash -c "ls -t $LOG_DIR/ibc-*.txt 2>/dev/null | head -1 | xargs tail -40" || log "(no ibc log)"
+  log "--- gatewaystart.sh ---"
+  pct exec "$CTID" -- ls -l /opt/ibc/gatewaystart.sh 2>/dev/null || log "(missing)"
+  log "=== End diagnostics ==="
+}
+
 # Wait for the container itself to be running (handles host reboot)
 log "Waiting for CT $CTID to be running..."
 for i in {1..30}; do
@@ -47,6 +60,7 @@ for ((i=1; i<=MAX_WAIT_SECS/2; i++)); do
 done
 if (( ready == 0 )); then
   log "ERROR: Gateway did not become ready on port 4002"
+  dump_diagnostics
   # Still try to clean up
   pct exec "$CTID" -- su - "$IBG_USER" -c 'pkill -f "ibcalpha.ibc.IbcGateway" || true; pkill -f "Xvfb :99" || true' || true
   exit 1
