@@ -4,6 +4,7 @@ Snapshot of key paths for the 533 trading system (IB Gateway + price refresh).
 
 ## Host (Proxmox)
 - Hostname: luffy
+- Repo checkout (host-side scripts): `/opt/trading`
 - Working dir when snapshot taken: `/root`
 
 ## Container 200 (IB Gateway)
@@ -35,9 +36,16 @@ IB Controller installation (IBC). Key files:
 - User: `ibgateway`
 
 ## Important scripts
-- Host-side entry point: `server_files/refresh_prices.sh` (in this repo)
-- Deployed copy: `/opt/trading/refresh_prices.sh` (inside CT 200)
+- Host-side entry point: `/opt/trading/refresh_prices.sh`
+  (copy of `server_files/refresh_prices.sh` from this repo)
+- Deployed copy (inside CT 200): `/opt/trading/refresh_prices.sh`
 - Price updater: `/opt/trading/update_prices.py` (inside CT 200)
+
+## How to run
+On the Proxmox host:
+```bash
+/opt/trading/refresh_prices.sh
+```
 
 ## Notes
 - Gateway API listens on port 4002 (paper) when running
