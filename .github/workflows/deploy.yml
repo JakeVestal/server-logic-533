@@ -19,3 +19,6 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOMELAB_HOST }}
+          username: root
+          key: ${{ secrets.HOMELAB_SSH_KEY }}
+          script: /root/deploy-server-logic.sh
