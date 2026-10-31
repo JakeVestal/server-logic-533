@@ -94,7 +94,44 @@ fi
 
 log "Stopping IB Gateway..."
 cleanup_gateway
+sleep 2
 
-log "Refresh complete."
+# Final leftover sweep: list, kill, verify
+log "Checking for leftover processes..."
+leftovers=$(pct exec "$CTID" -- bash -c '
+  ps -eo pid,user,etime,cmd --no-headers 2>/dev/null \
+    | grep -E "ibc|gateway|tws|java|Xvfb" \
+    | grep -v grep \
+    || true
+' || true)
+
+if [[ -n "${leftovers//[[:space:]]/}" ]]; then
+  log "Leftovers found:"
+  echo "$leftovers" | sed 's/^/  /'
+  log "Killing leftovers..."
+  pct exec "$CTID" -- bash -c '
+    pkill -9 -f "ibcalpha.ibc.IbcGateway" || true
+    pkill -9 -f "install4j.ibgateway.GWClient" || true
+    pkill -9 -f "Xvfb :99" || true
+    pkill -9 -u ibgateway -f java || true
+  ' || true
+  sleep 1
+  leftovers=$(pct exec "$CTID" -- bash -c '
+    ps -eo pid,user,etime,cmd --no-headers 2>/dev/null \
+      | grep -E "ibc|gateway|tws|java|Xvfb" \
+      | grep -v grep \
+      || true
+  ' || true)
+  if [[ -n "${leftovers//[[:space:]]/}" ]]; then
+    log "WARNING: processes still present after kill:"
+    echo "$leftovers" | sed 's/^/  /'
+  else
+    log "Leftovers cleared."
+  fi
+else
+  log "No leftover processes."
+fi
+
+log "Refresh complete. ✓"
 log "Latest IBC log:"
 pct exec "$CTID" -- bash -c "ls -t $LOG_DIR/ibc-*.txt | head -1 | xargs tail -20" || true
