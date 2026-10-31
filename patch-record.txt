@@ -4,3 +4,4 @@
 533serverlogic-004-tailscale-action (1).patch
 533serverlogic-005-refresh-with-ibg (1).patch
 533serverlogic-006-robust-refresh (1).patch
+533serverlogic-007-failure-diagnostics (2).patch
