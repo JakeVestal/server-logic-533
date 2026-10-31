@@ -1,2 +1,3 @@
 533serverlogic-001-initial-files (1).patch
 533serverlogic-002-server-files-dir.patch
+533serverlogic-003-deploy-workflow.patch
