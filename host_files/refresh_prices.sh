@@ -87,7 +87,7 @@ if (( ready == 0 )); then
 fi
 
 log "Running price update..."
-if ! pct exec "$CTID" -- python3 /opt/trading/update_prices.py; then
+if ! pct exec "$CTID" -- /opt/trading/venv/bin/python /opt/trading/update_prices.py; then
   log "update_prices.py failed"
   # fall through to cleanup
 fi

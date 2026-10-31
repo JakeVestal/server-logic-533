@@ -79,6 +79,8 @@ delete_patches_upto() {
     "$DOWNLOADS"/${prefix}*.patch
     "$DOWNLOADS"/${prefix}*.pach
   )
+  # Guard empty array under set -u (bash 3.2 / macOS)
+  [[ ${#all[@]} -eq 0 ]] && return 0
   for f in "${all[@]}"; do
     [[ -e "$f" ]] || continue
     base=$(basename "$f")
