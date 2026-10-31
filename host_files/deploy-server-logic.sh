@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Deploy host_files and server_files after the repo has been updated.
 # Called by the GitHub Actions workflow after it does the git reset.
+
 set -euo pipefail
 
 REPO_DIR="/opt/server-logic-533"
