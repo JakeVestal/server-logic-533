@@ -26,4 +26,4 @@ jobs:
             cd /opt/server-logic-533
             git fetch origin
             git reset --hard origin/main
-            ./host_files/deploy-server-logic.sh
+            bash host_files/deploy-server-logic.sh

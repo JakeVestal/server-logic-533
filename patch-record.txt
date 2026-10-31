@@ -6,3 +6,4 @@
 533serverlogic-006-robust-refresh (1).patch
 533serverlogic-007-failure-diagnostics (2).patch
 533serverlogic-008-xvfb-cleanup (2).patch
+533serverlogic-009-fix-deploy-perm.patch
