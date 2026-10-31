@@ -38,7 +38,8 @@ fi
 
 # Kill leftover processes from a previous failed run
 cleanup_gateway() {
-  pct exec "$CTID" -- su - "$IBG_USER" -c '
+  # Kill as root inside the container so we can reach any leftover processes
+  pct exec "$CTID" -- bash -c '
     pkill -f "ibcalpha.ibc.IbcGateway" || true
     pkill -f "install4j.ibgateway.GWClient" || true
     pkill -f "Xvfb :99" || true
