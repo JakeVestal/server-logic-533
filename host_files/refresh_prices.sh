@@ -36,15 +36,34 @@ if ! pct status "$CTID" 2>/dev/null | grep -q running; then
   exit 1
 fi
 
+# Kill leftover processes from a previous failed run
+cleanup_gateway() {
+  pct exec "$CTID" -- su - "$IBG_USER" -c '
+    pkill -f "ibcalpha.ibc.IbcGateway" || true
+    pkill -f "install4j.ibgateway.GWClient" || true
+    pkill -f "Xvfb :99" || true
+  ' || true
+}
+
+log "Clearing any leftover Gateway / Xvfb processes..."
+cleanup_gateway
+sleep 1
+
 log "Starting IB Gateway (CT $CTID)..."
 pct exec "$CTID" -- su - "$IBG_USER" -c '
-  export DISPLAY=:99
-  # Start Xvfb if not already running
+  # Start Xvfb and wait until it is actually running
+  nohup Xvfb :99 -screen 0 1024x768x24 >/tmp/xvfb.log 2>&1 &
+  for i in $(seq 1 10); do
+    if pgrep -f "Xvfb :99" >/dev/null; then
+      break
+    fi
+    sleep 0.5
+  done
   if ! pgrep -f "Xvfb :99" >/dev/null; then
-    Xvfb :99 -screen 0 1024x768x24 >/dev/null 2>&1 &
-    sleep 1
+    echo "Xvfb failed to start" >> /tmp/ibg-start.log
+    exit 1
   fi
-  # Start IBC/Gateway in background
+  export DISPLAY=:99
   nohup /opt/ibc/gatewaystart.sh -inline >/tmp/ibg-start.log 2>&1 &
 '
 
@@ -62,7 +81,7 @@ if (( ready == 0 )); then
   log "ERROR: Gateway did not become ready on port 4002"
   dump_diagnostics
   # Still try to clean up
-  pct exec "$CTID" -- su - "$IBG_USER" -c 'pkill -f "ibcalpha.ibc.IbcGateway" || true; pkill -f "Xvfb :99" || true' || true
+  cleanup_gateway
   exit 1
 fi
 
@@ -73,10 +92,7 @@ if ! pct exec "$CTID" -- /opt/trading/update_prices.py; then
 fi
 
 log "Stopping IB Gateway..."
-pct exec "$CTID" -- su - "$IBG_USER" -c '
-  pkill -f "ibcalpha.ibc.IbcGateway" || true
-  pkill -f "Xvfb :99" || true
-' || true
+cleanup_gateway
 
 log "Refresh complete."
 log "Latest IBC log:"
