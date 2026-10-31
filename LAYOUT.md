@@ -1,12 +1,11 @@
 # Trading Stack Layout
 
 Snapshot of key paths for the 533 trading system (IB Gateway + price refresh).
-Based on observed state as of 2026-10-31.
 
 ## Host (Proxmox)
 - Hostname: luffy
+- Repo checkout (host-side scripts): `/opt/trading`
 - Working dir when snapshot taken: `/root`
-- `/opt/trading` on the host: **does not exist** (snapshot showed missing)
 
 ## Container 200 (IB Gateway)
 - Hostname: fintech-533
@@ -16,7 +15,7 @@ Based on observed state as of 2026-10-31.
 
 ## Paths inside CT 200
 
-### `/opt/trading` (inside container)
+### `/opt/trading`
 ```
 refresh_prices.sh      # full start-IBG → update → stop script
 update_prices.py       # fetches history via IB API and pushes to GitHub
@@ -37,15 +36,16 @@ IB Controller installation (IBC). Key files:
 - User: `ibgateway`
 
 ## Important scripts
-- Source of truth: `server_files/refresh_prices.sh` in this repo
-- Deployed copy (inside CT 200 only): `/opt/trading/refresh_prices.sh`
+- Host-side entry point: `/opt/trading/refresh_prices.sh`
+  (copy of `server_files/refresh_prices.sh` from this repo)
+- Deployed copy (inside CT 200): `/opt/trading/refresh_prices.sh`
 - Price updater: `/opt/trading/update_prices.py` (inside CT 200)
 
 ## How to run
-`refresh_prices.sh` uses `pct exec`, so it must be run on the Proxmox host.
-There is currently no host-side copy. Either:
-1. Check the repo out on the host and run `server_files/refresh_prices.sh`, or
-2. Copy the script to a fixed host path (e.g. `/usr/local/bin/refresh_prices.sh`) and run that.
+On the Proxmox host:
+```bash
+/opt/trading/refresh_prices.sh
+```
 
 ## Notes
 - Gateway API listens on port 4002 (paper) when running
