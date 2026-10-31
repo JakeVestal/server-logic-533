@@ -110,10 +110,13 @@ if [[ -n "${leftovers//[[:space:]]/}" ]]; then
   echo "$leftovers" | sed 's/^/  /'
   log "Killing leftovers..."
   pct exec "$CTID" -- bash -c '
-    pkill -9 -f "ibcalpha.ibc.IbcGateway" || true
-    pkill -9 -f "install4j.ibgateway.GWClient" || true
-    pkill -9 -f "Xvfb :99" || true
-    pkill -9 -u ibgateway -f java || true
+    pids=$(ps -eo pid,cmd --no-headers 2>/dev/null \
+      | grep -E "ibc|gateway|tws|java|Xvfb" \
+      | grep -v grep \
+      | awk "{print \$1}")
+    if [[ -n "$pids" ]]; then
+      kill -9 $pids || true
+    fi
   ' || true
   sleep 1
   leftovers=$(pct exec "$CTID" -- bash -c '
