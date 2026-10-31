@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'server_files/**'
+      - 'host_files/**'
 
 jobs:
   deploy:
@@ -21,4 +22,8 @@ jobs:
           host: ${{ secrets.HOMELAB_HOST }}
           username: root
           key: ${{ secrets.HOMELAB_SSH_KEY }}
-          script: /root/deploy-server-logic.sh
+          script: |
+            cd /opt/server-logic-533
+            git fetch origin
+            git reset --hard origin/main
+            ./host_files/deploy-server-logic.sh
