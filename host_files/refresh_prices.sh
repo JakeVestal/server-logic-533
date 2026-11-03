@@ -76,6 +76,21 @@ for ((i=1; i<=MAX_WAIT_SECS/2; i++)); do
     ready=1
     break
   fi
+  # Progress every ~10s
+  if (( i % 5 == 0 )); then
+    elapsed=$((i * 2))
+    log "  ... ${elapsed}s elapsed, still waiting"
+    # Surface recent log lines that look like problems
+    pct exec "$CTID" -- bash -c '
+      latest=$(ls -t /home/ibgateway/ibc/logs/ibc-*.txt 2>/dev/null | head -1)
+      if [ -n "$latest" ]; then
+        tail -15 "$latest" | grep -iE "already logged|login failed|error|exception|conflict|another instance|cannot connect" || true
+      fi
+      if [ -f /tmp/ibg-start.log ]; then
+        tail -5 /tmp/ibg-start.log | grep -iE "error|fail|exception" || true
+      fi
+    ' || true
+  fi
   sleep 2
 done
 if (( ready == 0 )); then
