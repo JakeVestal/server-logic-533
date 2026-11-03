@@ -18,3 +18,4 @@
 533serverlogic-019-gateway-progress.patch
 533serverlogic-020-seed-missing-price-history.patch
 533serverlogic-021-seed-name-and-summary.patch
+533serverlogic-024-remove-repo.patch
