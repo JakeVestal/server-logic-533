@@ -26,12 +26,12 @@ CLIENT_ID = 1
 # Seed ConIDs used when a student repo has no price_history.json yet.
 # One is chosen at random to confirm two-way connectivity.
 SEED_CONIDS = [
-    ("AAPL",  265598),
-    ("NVDA",  4815747),
-    ("MSFT",  272093),
-    ("GOOGL", 208813720),
-    ("SPY",   756733),
-    ("AMZN",  3691937),
+    ("AAPL",  265598,     "APPLE INC"),
+    ("NVDA",  4815747,    "NVIDIA CORPORATION"),
+    ("MSFT",  272093,     "MICROSOFT CORPORATION"),
+    ("GOOGL", 208813720,  "ALPHABET INC"),
+    ("SPY",   756733,     "SPDR S&P 500 ETF TRUST"),
+    ("AMZN",  3691937,    "AMAZON.COM INC"),
 ]
 
 
@@ -129,6 +129,7 @@ def main():
     ib = IB()
     ib.connect(IB_HOST, IB_PORT, clientId=CLIENT_ID)
 
+    updated_repos = []
     for owner, repo, token in targets:
         print(f"Processing {owner}/{repo}")
         sha = None
@@ -137,11 +138,12 @@ def main():
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
                 import random
-                symbol, conid = random.choice(SEED_CONIDS)
-                print(f"  no price_history.json — seeding with {symbol} ({conid})")
+                symbol, conid, name = random.choice(SEED_CONIDS)
+                print(f"  no price_history.json — seeding with {symbol} ({conid}, {name})")
                 data = {
                     str(conid): {
                         "tracked": True,
+                        "name": name,
                         "price_history": {},
                     }
                 }
@@ -207,10 +209,24 @@ def main():
                 token,
             )
             print("  pushed updated price_history.json")
+            assets = []
+            for cid, info in data.items():
+                nm = info.get("name", "")
+                assets.append(f"{cid} ({nm})" if nm else cid)
+            updated_repos.append((owner, repo, assets))
         except Exception as exc:
             print(f"  ERROR pushing: {exc}")
 
     ib.disconnect()
+
+    print()
+    print("=== Summary ===")
+    if not updated_repos:
+        print("No repos updated")
+    else:
+        for owner, repo, conids in updated_repos:
+            print(f"  {owner}/{repo}: {', '.join(conids)}")
+    print(f"Total: {len(updated_repos)} repo(s) updated")
 
 
 if __name__ == "__main__":

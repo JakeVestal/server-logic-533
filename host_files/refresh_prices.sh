@@ -110,6 +110,7 @@ if ! pct exec "$CTID" -- /opt/trading/venv/bin/python /opt/trading/update_prices
   log "update_prices.py failed"
   # fall through to cleanup
 fi
+log "Price update finished (see summary above)"
 
 log "Stopping IB Gateway..."
 cleanup_gateway
