@@ -14,3 +14,4 @@
 533serverlogic-015-pid-kill.patch
 533serverlogic-016-disclaimer-wait.patch
 533serverlogic-017-per-repo-tokens.patch
+533serverlogic-018-manage-repos.patch

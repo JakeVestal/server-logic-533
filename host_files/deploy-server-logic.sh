@@ -12,6 +12,9 @@ cd "$REPO_DIR"
 # Host-side script (stable cron path)
 mkdir -p /opt/trading
 install -m 755 host_files/refresh_prices.sh /opt/trading/refresh_prices.sh
+install -m 755 host_files/view_repos.sh     /opt/trading/view_repos.sh
+install -m 755 host_files/add_repo.sh       /opt/trading/add_repo.sh
+install -m 755 host_files/delete_repo.sh    /opt/trading/delete_repo.sh
 
 # Container files
 pct exec "$CTID" -- mkdir -p /opt/trading
