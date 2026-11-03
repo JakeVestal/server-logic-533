@@ -23,6 +23,17 @@ IB_HOST = "127.0.0.1"
 IB_PORT = 4002
 CLIENT_ID = 1
 
+# Seed ConIDs used when a student repo has no price_history.json yet.
+# One is chosen at random to confirm two-way connectivity.
+SEED_CONIDS = [
+    ("AAPL",  265598),
+    ("NVDA",  4815747),
+    ("MSFT",  272093),
+    ("GOOGL", 208813720),
+    ("SPY",   756733),
+    ("AMZN",  3691937),
+]
+
 
 def owner_repo(url):
     parts = url.strip().rstrip("/").split("/")
@@ -98,8 +109,9 @@ def put_file(owner, repo, path, content, sha, message, token):
     payload = {
         "message": message,
         "content": base64.b64encode(content.encode()).decode(),
-        "sha": sha,
     }
+    if sha is not None:
+        payload["sha"] = sha
     r = requests.put(
         f"https://api.github.com/repos/{owner}/{repo}/contents/{path}",
         headers=gh_headers(token),
@@ -119,8 +131,24 @@ def main():
 
     for owner, repo, token in targets:
         print(f"Processing {owner}/{repo}")
+        sha = None
         try:
             data, sha = get_file(owner, repo, "price_history.json", token)
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                import random
+                symbol, conid = random.choice(SEED_CONIDS)
+                print(f"  no price_history.json — seeding with {symbol} ({conid})")
+                data = {
+                    str(conid): {
+                        "tracked": True,
+                        "price_history": {},
+                    }
+                }
+                # sha stays None so put_file creates the file
+            else:
+                print(f"  ERROR reading price_history.json: {exc}")
+                continue
         except Exception as exc:
             print(f"  ERROR reading price_history.json: {exc}")
             continue
