@@ -35,13 +35,19 @@
     }
     h1 span { color: #e8a317; }
     .body { padding: 18px 28px 28px; }
-    h2 {
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 18px;
-      font-weight: 500;
-      color: #d4a017;
-      margin: 20px 0 10px 0;
+    details {
+      background-color: #0a1633;
+      margin: 8px 0 16px 0;
+      border: 1px solid #1a3a66;
     }
+    summary {
+      cursor: pointer;
+      padding: 11px 14px;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 13px;
+      color: #7cff55;
+    }
+    details .in { padding: 4px 16px 8px 16px; }
     p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
     ol { margin: 0 0 16px 1.25em; padding: 0; }
     li { margin: 0 0 8px 0; color: #d7e3fb; font-size: 15.5px; }
@@ -97,51 +103,48 @@
       PAT, which needs read and write permission on your repo.
     </p>
 
-    <h2>How to create your PAT</h2>
-    <ol>
-      <li>Sign in to GitHub.</li>
-      <li>
-        Open
-        <a href="https://github.com/settings/personal-access-tokens/new">github.com/settings/personal-access-tokens/new</a>.
-        Use this page. Do not use the classic token page.
-      </li>
-      <li>Token name: <code>duke-533</code>. Description can stay blank.</li>
-      <li>Resource owner: your own account, not an organization.</li>
-      <li>
-        Expiration: choose <strong>Custom</strong> and pick a date after this
-        course ends. If you do not know that date, pick a date 180 days from
-        today. Do not leave the default, and do not pick 7 or 30 days.
-      </li>
-      <li>
-        Repository access: <strong>Only select repositories</strong>. Select
-        the one repository you created for this class. Do not select
-        <strong>All repositories</strong>.
-      </li>
-      <li>
-        Open <strong>Repository permissions</strong>. Find
-        <strong>Contents</strong>. Set it to <strong>Read and write</strong>.
-        Leave every other permission on <strong>No access</strong>.
-      </li>
-      <li>Click <strong>Generate token</strong>.</li>
-      <li>
-        Copy the token immediately. It starts with <code>github_pat_</code>
-        and GitHub shows it only once. If you leave the page without copying
-        it, generate a new one.
-      </li>
-      <li>
-        Send the instructor a Teams message with two things: the token, and
-        the repository URL from the green <strong>Code</strong> button. It
-        looks like <code>https://github.com/your-username/your-repo</code>.
-        Do not send a <code>github.io</code> address.
-      </li>
-    </ol>
-    <p>
-      Do not commit the token, and do not paste it into the repository or the
-      class chat. If your row is a red X after you have been added, the token
-      on file cannot write to that repository. Make a new one with
-      <strong>Contents</strong> set to <strong>Read and write</strong> on
-      that exact repository, and send it to the instructor.
-    </p>
+    <details>
+      <summary>How to create your PAT</summary>
+      <div class="in">
+        <ol>
+          <li>Sign in to GitHub.</li>
+          <li>
+            Open
+            <a href="https://github.com/settings/personal-access-tokens/new">github.com/settings/personal-access-tokens/new</a>.
+            Use this page. Do not use the classic token page.
+          </li>
+          <li>Token name: <code>duke-533</code>. Description can stay blank.</li>
+          <li>Resource owner: your own account, not an organization.</li>
+          <li>
+            Expiration: choose <strong>Custom</strong> and pick a date after this
+            course ends. If you do not know that date, pick a date 180 days from
+            today. Do not leave the default, and do not pick 7 or 30 days.
+          </li>
+          <li>
+            Repository access: <strong>Only select repositories</strong>. Select
+            the one repository you created for this class. Do not select
+            <strong>All repositories</strong>.
+          </li>
+          <li>
+            Open <strong>Repository permissions</strong>. Find
+            <strong>Contents</strong>. Set it to <strong>Read and write</strong>.
+            Leave every other permission on <strong>No access</strong>.
+          </li>
+          <li>Click <strong>Generate token</strong>.</li>
+          <li>
+            Copy the token immediately. It starts with <code>github_pat_</code>
+            and GitHub shows it only once. If you leave the page without copying
+            it, generate a new one.
+          </li>
+          <li>
+            Send the instructor a Teams message with two things: the token, and
+            the repository URL from the green <strong>Code</strong> button. It
+            looks like <code>https://github.com/your-username/your-repo</code>.
+            Do not send a <code>github.io</code> address.
+          </li>
+        </ol>
+      </div>
+    </details>
 
     <table>
       <thead>
@@ -159,6 +162,6 @@
   </div>
 </div>
 <script src="site.js"></script>
-<script src="dashboard.js?v=3"></script>
+<script src="dashboard.js?v=4"></script>
 </body>
 </html>

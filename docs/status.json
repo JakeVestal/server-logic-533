@@ -1,101 +1,105 @@
 {
-  "probed_at": "2026-11-04T19:17:45Z",
+  "probed_at": "2026-11-04T19:42:56Z",
   "ok": true,
   "host": "luffy",
-  "price_run": {
-    "finished_at": "2026-11-04T18:35:21Z",
-    "ok": false,
-    "github_ok": false,
-    "robin_ok": true,
-    "repos_seen": 14,
-    "repos_pushed": 1,
-    "bars_upserted": 436,
-    "error": "davidp0717/fintech535: push failed; Jason-Dorman/pmcc-strategy: push failed; JamesGao2003/option-surface-lab: push failed"
-  },
   "repos": [
     {
       "username": "JakeVestal",
       "repo": "wheel-strategy-533",
       "url": "https://github.com/JakeVestal/wheel-strategy-533",
-      "last_push": "2026-11-03T14:40:18Z"
+      "last_push": "2026-11-03T14:40:18Z",
+      "connected": true
     },
     {
       "username": "Vicky-zjx",
       "repo": "535_fintech",
       "url": "https://github.com/Vicky-zjx/535_fintech",
-      "last_push": "2026-11-03T16:33:45Z"
+      "last_push": "2026-11-03T16:33:45Z",
+      "connected": true
     },
     {
       "username": "felipejpenagos",
       "repo": "fintech535",
       "url": "https://github.com/felipejpenagos/fintech535",
-      "last_push": "2026-11-03T15:00:52Z"
+      "last_push": "2026-11-03T15:00:52Z",
+      "connected": true
     },
     {
       "username": "hannaboud",
       "repo": "website",
       "url": "https://github.com/hannaboud/website",
-      "last_push": "2026-11-03T15:06:15Z"
+      "last_push": "2026-11-03T15:06:15Z",
+      "connected": true
     },
     {
       "username": "apinyanadal",
       "repo": "535Wheel",
       "url": "https://github.com/apinyanadal/535Wheel",
-      "last_push": "2026-11-03T15:06:17Z"
+      "last_push": "2026-11-03T15:06:17Z",
+      "connected": true
     },
     {
       "username": "ilinakgobburu",
       "repo": "535-fintech",
       "url": "https://github.com/ilinakgobburu/535-fintech",
-      "last_push": "2026-11-03T16:33:48Z"
+      "last_push": "2026-11-03T16:33:48Z",
+      "connected": true
     },
     {
       "username": "BigJayJayHuang",
       "repo": "FIN---Adv-Algo-Trading",
       "url": "https://github.com/BigJayJayHuang/FIN---Adv-Algo-Trading",
-      "last_push": "2026-11-03T17:45:36Z"
+      "last_push": "2026-11-03T17:45:36Z",
+      "connected": true
     },
     {
       "username": "yangpuhan",
       "repo": "Fintech535",
       "url": "https://github.com/yangpuhan/Fintech535",
-      "last_push": "2026-11-03T17:45:37Z"
+      "last_push": "2026-11-03T17:45:37Z",
+      "connected": true
     },
     {
       "username": "davidp0717",
       "repo": "fintech535",
       "url": "https://github.com/davidp0717/fintech535",
-      "last_push": null
+      "last_push": null,
+      "connected": false
     },
     {
       "username": "benedictzhang-crypto",
       "repo": "Benedict-535",
       "url": "https://github.com/benedictzhang-crypto/Benedict-535",
-      "last_push": "2026-11-03T18:02:26Z"
+      "last_push": "2026-11-03T18:02:26Z",
+      "connected": true
     },
     {
       "username": "Jessie-BP",
       "repo": "fintech-535",
       "url": "https://github.com/Jessie-BP/fintech-535",
-      "last_push": "2026-11-03T18:37:38Z"
+      "last_push": "2026-11-03T18:37:38Z",
+      "connected": true
     },
     {
       "username": "Jason-Dorman",
       "repo": "pmcc-strategy",
       "url": "https://github.com/Jason-Dorman/pmcc-strategy",
-      "last_push": null
+      "last_push": null,
+      "connected": false
     },
     {
       "username": "JamesGao2003",
       "repo": "option-surface-lab",
       "url": "https://github.com/JamesGao2003/option-surface-lab",
-      "last_push": null
+      "last_push": null,
+      "connected": false
     },
     {
       "username": "nilsbln4",
       "repo": "535",
       "url": "https://github.com/nilsbln4/535",
-      "last_push": "2026-11-04T18:35:20Z"
+      "last_push": "2026-11-04T18:35:20Z",
+      "connected": true
     }
   ]
 }

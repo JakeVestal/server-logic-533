@@ -16,17 +16,15 @@
   }
 
   function mark(connected) {
-    if (connected === true) return '<span class="ok" title="Connected">✓</span>';
-    if (connected === false) return '<span class="bad" title="Not connected">✕</span>';
-    return '<span class="idle" title="Not checked yet">—</span>';
+    if (connected === true) return '<span class="ok" title="Connected">\u2713</span>';
+    if (connected === false) return '<span class="bad" title="Not connected">\u2715</span>';
+    return '<span class="idle" title="Not checked yet">\u2014</span>';
   }
 
   function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&")
-      .replace(/</g, "<")
-      .replace(/>/g, ">")
-      .replace(/"/g, """);
+    var node = document.createElement("span");
+    node.textContent = s == null ? "" : String(s);
+    return node.innerHTML;
   }
 
   function paint(data) {
