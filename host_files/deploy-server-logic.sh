@@ -15,6 +15,7 @@ install -m 755 host_files/update_price_history.sh /opt/trading/update_price_hist
 install -m 755 host_files/view_repos.sh     /opt/trading/view_repos.sh
 install -m 755 host_files/add_repo.sh       /opt/trading/add_repo.sh
 install -m 755 host_files/delete_repo.sh    /opt/trading/delete_repo.sh
+install -m 755 host_files/update_pat.sh     /opt/trading/update_pat.sh
 install -m 755 host_files/apply_robin_schema.sh /opt/trading/apply_robin_schema.sh
 install -m 755 host_files/publish_status.sh    /opt/trading/publish_status.sh
 

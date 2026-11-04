@@ -27,3 +27,4 @@
 533serverlogic-031-summary-at-end.patch
 533serverlogic-032-status-on-demand.patch
 533serverlogic-033-student-status.patch
+533serverlogic-034-update-pat.patch

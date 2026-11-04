@@ -1,5 +1,9 @@
 # Trading Stack Layout
 
+> Out of date. The recreation record is the setup page:
+> <https://jakevestal.github.io/server-logic-533/setup.html>
+> Do not treat the paths below as the current design unless that page agrees.
+
 Snapshot of key paths for the 533 trading system (IB Gateway + price refresh).
 
 ## Host (Proxmox)

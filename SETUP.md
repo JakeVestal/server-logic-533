@@ -1,5 +1,9 @@
 # Setup Guide — 533 Trading Stack
 
+> Out of date. The recreation record is the setup page:
+> <https://jakevestal.github.io/server-logic-533/setup.html>
+> Do not follow the steps below. They describe an older layout.
+
 How to stand up the IB Gateway + price-refresh system on a Proxmox host.
 If the server is wiped, follow this to recreate what we built.
 
