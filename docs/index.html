@@ -3,90 +3,6 @@
 <head>
   <meta charset="utf-8">
   <title>Duke 533 — Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { margin: 0; background-color: #050b1c; }
-    .page {
-      background-color: #050b1c;
-      color: #e8eefc;
-      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-      line-height: 1.55;
-      margin: 0 auto;
-      max-width: 920px;
-      border: 1px solid #d4a017;
-    }
-    .hero {
-      background-color: #061433;
-      border-bottom: 2px solid #d4a017;
-      padding: 26px 28px 22px;
-    }
-    .eyebrow {
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 11px;
-      color: #d4a017;
-      margin: 0 0 8px 0;
-    }
-    h1 {
-      font-size: 26px;
-      font-weight: 500;
-      color: #7cff55;
-      line-height: 1.25;
-      margin: 0;
-    }
-    h1 span { color: #e8a317; }
-    .meta {
-      background-color: #07122b;
-      border-bottom: 1px solid #1a3a66;
-      padding: 10px 28px;
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 12.5px;
-      color: #8aa0c4;
-      display: flex;
-      gap: 16px;
-      align-items: center;
-    }
-    .badge {
-      padding: 2px 8px;
-      border: 1px solid #1a3a66;
-    }
-    .badge.ok { color: #7cff55; border-color: #1d6b32; }
-    .badge.stale { color: #e8a317; border-color: #8a6a12; }
-    .badge.bad { color: #ff6b6b; border-color: #8a2a2a; }
-    .badge.idle { color: #8aa0c4; }
-    .body { padding: 18px 28px 28px; }
-    p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
-    code {
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      color: #7cff55;
-      font-size: 0.92em;
-    }
-    a { color: #3ecbff; text-decoration: none; }
-    table { width: 100%; border-collapse: collapse; margin: 0 0 14px 0; }
-    th {
-      text-align: left;
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 12px;
-      font-weight: 500;
-      color: #d4a017;
-      padding: 8px 12px 8px 0;
-      border-bottom: 1px solid #d4a017;
-    }
-    td {
-      padding: 10px 12px 10px 0;
-      border-bottom: 1px solid #1a2a4a;
-      font-size: 15px;
-      color: #e8eefc;
-    }
-    td.empty { color: #8aa0c4; }
-    .note {
-      border-left: 3px solid #d4a017;
-      padding: 10px 14px;
-      background-color: #120e06;
-      color: #f0e2b8;
-      font-size: 14.5px;
-      margin: 0;
-    }
-  </style>
 </head>
 <body>
 <div class="page">
@@ -101,28 +17,32 @@
   </div>
   <div class="body">
     <p>
-      Subscribed repos on Sanji, CT 200. The user column is the GitHub
-      owner parsed from the repo URL. Last update is the last time this
-      system pushed <code>price_history.json</code>, not the last time
-      the student committed. The price-run badge is the IB refresh that
-      also writes those bars into Robin.
+      The users below are subscribed to the server. If your name is not
+      there, you need to send a message to the instructor on Teams containing
+      the url of your GitHub repo and a PAT that will allow the server to
+      connect to your repo. Remember that the server needs your **repo**'s
+      url -- the one that you see when you click the green "code" button on
+      your repository's main code page -- *not* your website's url. use the
+      instructions below on how to properly create a PAT.
     </p>
+    <p>
+      If your status is "green", then you are connected and set up. If your
+      status is "red", contact the instructor for troubleshooting (it's
+      probably your PAT, which should have read & write permissions for your
+      repo).
+    </p>
+    <div>
+      for properly configuring a student's PAT for this project
+    </div>
     <table>
       <thead>
-        <tr><th>GitHub user</th><th>Repository</th><th>Last update by us</th></tr>
+      <tr><th>GitHub user</th><th>Repository</th><th>Last server
+        update</th></tr>
       </thead>
       <tbody id="rows">
-        <tr><td colspan="3" class="empty">Loading…</td></tr>
+      <tr><td colspan="3" class="empty">Loading…</td></tr>
       </tbody>
     </table>
-    <p class="note">
-      This page does not SSH. A workflow on a 15-minute schedule SSHs
-      to Luffy, reads the repo list there, and writes
-      <code>status.json</code>. Tokens stay on CT 200. The first badge
-      is that probe. The second badge is the last price run, including
-      the Robin write. Run the probe by hand from
-      <a href="https://github.com/JakeVestal/server-logic-533/actions/workflows/status.yml">Luffy status</a>.
-    </p>
   </div>
 </div>
 <script src="site.js"></script>
