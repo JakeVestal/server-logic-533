@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Duke 533 — Setup</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; background-color: #050b1c; }
+    .page {
+      background-color: #050b1c;
+      color: #e8eefc;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+      margin: 0 auto;
+      max-width: 920px;
+      border: 1px solid #d4a017;
+    }
+    .hero {
+      background-color: #061433;
+      border-bottom: 2px solid #d4a017;
+      padding: 26px 28px 22px;
+    }
+    .eyebrow {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 11px;
+      color: #d4a017;
+      margin: 0 0 8px 0;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 500;
+      color: #7cff55;
+      line-height: 1.25;
+      margin: 0;
+    }
+    h1 span { color: #e8a317; }
+    .body { padding: 18px 28px 36px; }
+    h2 {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 18px;
+      font-weight: 500;
+      color: #d4a017;
+      margin: 28px 0 10px 0;
+    }
+    p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
+    ol, ul { margin: 0 0 14px 1.25em; padding: 0; }
+    li { margin: 0 0 8px 0; color: #d7e3fb; font-size: 15.5px; }
+    code, pre {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+    }
+    code { color: #7cff55; font-size: 0.92em; }
+    pre {
+      background-color: #061433;
+      border: 1px solid #1a3a66;
+      color: #e8eefc;
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 14px 16px;
+      margin: 0 0 14px 0;
+      overflow-x: auto;
+    }
+    pre code { color: inherit; font-size: inherit; }
+    a { color: #3ecbff; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; margin: 0 0 14px 0; }
+    th {
+      text-align: left;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #d4a017;
+      padding: 8px 12px 8px 0;
+      border-bottom: 1px solid #d4a017;
+    }
+    td {
+      vertical-align: top;
+      padding: 10px 12px 10px 0;
+      border-bottom: 1px solid #1a2a4a;
+      font-size: 14.5px;
+      color: #e8eefc;
+    }
+    td.k {
+      width: 34%;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      color: #3ecbff;
+      font-size: 13px;
+    }
+    .note {
+      border-left: 3px solid #d4a017;
+      padding: 10px 14px;
+      background-color: #120e06;
+      color: #f0e2b8;
+      font-size: 14.5px;
+      margin: 0 0 14px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">server-logic-533</p>
+    <h1>How this system <span>is built</span></h1>
+  </header>
+  <div class="body">
+    <p>
+      This is the recreation record for the 533 trading system. If the host
+      is lost, follow this page and the files in
+      <a href="https://github.com/JakeVestal/server-logic-533">the repo</a>.
+      The root files <code>SETUP.md</code> and <code>LAYOUT.md</code> describe
+      an older layout. Do not follow them.
+    </p>
+    <p class="note">
+      This page names paths and secret names. It does not contain tokens,
+      passwords, private keys, or Tailscale auth keys. Those stay on the
+      host or in GitHub Actions secrets. Do not paste them into git, into
+      this page, or into a commit.
+    </p>
+
+    <h2>The pieces</h2>
+    <table>
+      <thead><tr><th>Piece</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="k">Luffy</td>
+          <td>The Proxmox host. GitHub Actions reaches it over Tailscale, as root, by SSH. The repo is checked out at <code>/opt/server-logic-533</code>. Stable operator scripts live in <code>/opt/trading</code>.</td>
+        </tr>
+        <tr>
+          <td class="k">Sanji, CT 200</td>
+          <td>Unprivileged LXC. Runs IB Gateway through IBC on a virtual display, fetches daily bars, writes <code>price_history.json</code> to each student repo, and upserts the same bars into Robin.</td>
+        </tr>
+        <tr>
+          <td class="k">Robin, CT 201</td>
+          <td>Postgres. Database name <code>robin</code>. One shared price table. Sanji is the writer. Students, later, get a read-only role.</td>
+        </tr>
+        <tr>
+          <td class="k">This repo</td>
+          <td><code>server_files/</code> is what runs inside Sanji. <code>host_files/</code> is what runs on Luffy. <code>docs/</code> is the public site. <code>robin/schema.sql</code> is the database record.</td>
+        </tr>
+        <tr>
+          <td class="k">The site</td>
+          <td>GitHub Pages, from <code>docs/</code> on <code>main</code>. The dashboard reads <code>status.json</code>. The order menu is the student spec. Sanji does not resolve those orders yet.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>What happens on a market afternoon</h2>
+    <p>
+      Luffy's cron runs <code>/opt/trading/update_price_history.sh</code>.
+      The line is not in git. Recreate it as 16:00 America/New_York, Monday
+      through Friday. If the host clock is UTC, that is 21:00 UTC while the
+      US is on standard time and 20:00 UTC while it is on daylight time.
+      Log it somewhere on the host, for example
+      <code>/var/log/update_price_history.log</code>.
+    </p>
+    <ol>
+      <li>The script asks <code>exchange_calendars</code> whether the NYSE (XNYS) is in session. A weekend or holiday exits before Gateway starts. If that package is missing, only Saturday and Sunday are skipped, so install it.</li>
+      <li>It waits until CT 200 is running, then clears leftover Gateway and Xvfb processes.</li>
+      <li>As the <code>ibgateway</code> user, it starts <code>Xvfb :99</code> and <code>/opt/ibc/gatewaystart.sh</code>. Gateway is the paper account and listens on port <code>4002</code>. The wait is up to 300 seconds.</li>
+      <li><code>/opt/trading/venv/bin/python /opt/trading/update_prices.py</code> runs inside CT 200. Client id is 1. Bar size is <code>1 day</code>.</li>
+      <li>For each entry in <code>/opt/trading/student_repos.json</code>, Sanji reads that repo's <code>price_history.json</code> with that repo's token. A missing file is seeded with one of the built-in contracts. Bars come from Gateway. Changed files are pushed. The commit message starts with <code>Update price history</code>.</li>
+      <li>The same bars are upserted into Robin. The password is the contents of <code>/opt/trading/robin_writer.password</code> inside CT 200. The host and port are the <code>ROBIN_HOST</code> and <code>ROBIN_PORT</code> constants in <code>server_files/update_prices.py</code>.</li>
+      <li>A short result is written to <code>/opt/trading/price_run.json</code> inside CT 200. That file is not published.</li>
+      <li>Gateway and Xvfb are stopped. The script prints leftovers and the Python summary.</li>
+      <li>Deploy appends a call to <code>/opt/trading/publish_status.sh</code>. A failure there does not fail the price run. That script asks GitHub to run the Luffy status workflow. It does not start Gateway.</li>
+    </ol>
+    <p>
+      There is a legacy path. If <code>student_repos.json</code> is missing,
+      <code>update_prices.py</code> falls back to one token in
+      <code>/opt/trading/github_token</code> and the list in
+      <code>subscribed_repos.txt</code>. Do not use that path. The live list
+      is the JSON file.
+    </p>
+
+    <h2>How the dashboard mark is set</h2>
+    <p>
+      The Luffy status workflow SSHs to Luffy and runs
+      <code>host_files/dashboard_status.sh</code> from the checkout. For each
+      subscribed repo it does two GitHub calls with that student's token, and
+      it never prints the token.
+    </p>
+    <ul>
+      <li>It creates one git blob whose text is <code>luffy-dashboard-permission-check</code>. The same text is reused, so later checks do not pile up objects. This does not create a commit and does not show in the student's history. HTTP 200 or 201 means the token can write. Anything else is not connected. A read of the repo is not enough, because GitHub would report the student's own permission rather than the token's.</li>
+      <li>It looks through commits on <code>price_history.json</code> for the newest message that starts with <code>Update price history</code>. That time is the Last server update column. A student commit does not count. Never means we have not pushed that file.</li>
+    </ul>
+    <p>
+      If GitHub says the rate limit is exhausted, the script exits before
+      printing JSON. The workflow then does not commit, and the previous
+      <code>status.json</code> stays. A rate limit must not turn every row
+      into a red X.
+    </p>
+    <p>
+      The workflow writes <code>docs/status.json</code> and pushes it. Pages
+      rebuilds. A green check is <code>connected: true</code>. A red X is
+      false. A dash means this copy of the file was written before the check
+      existed.
+    </p>
+    <p>The workflow runs when any of these happen:</p>
+    <ul>
+      <li>Someone opens <a href="https://github.com/JakeVestal/server-logic-533/actions/workflows/status.yml">Actions → Luffy status → Run workflow</a>.</li>
+      <li><code>/opt/trading/publish_status.sh</code> runs. The price job calls it at the end. Run it by hand after a PAT change.</li>
+      <li>The Deploy to Luffy workflow succeeds.</li>
+    </ul>
+    <p>
+      <code>publish_status.sh</code> reads
+      <code>/opt/trading/status_dispatch.token</code> on Luffy, not inside a
+      container. That file is a fine-grained PAT for this one repository,
+      permission Actions read and write, nothing else. It cannot read student
+      repos. Create it with no expiration so a semester boundary does not
+      silently stop the refresh. GitHub still revokes a token that goes
+      unused for a year. The afternoon job uses it on market days.
+    </p>
+<pre><code>umask 077
+read -r -s -p "dispatch token: " T
+printf '%s' "$T" > /opt/trading/status_dispatch.token
+unset T
+chmod 600 /opt/trading/status_dispatch.token</code></pre>
+
+    <h2>Operator commands</h2>
+    <p>
+      Run these on Luffy as root. Deploy installs them to
+      <code>/opt/trading</code>. The copies in <code>host_files/</code> are
+      the source. <code>student_repos.json</code> stays mode 600 inside CT 200.
+      None of these scripts print a token.
+    </p>
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="k">add_repo.sh</td>
+          <td>Asks for a repo URL and a PAT. Appends one object. Refuses a duplicate URL.</td>
+        </tr>
+        <tr>
+          <td class="k">update_pat.sh</td>
+          <td>Asks for a username, repo name, or URL. Lists matches. You pick one. Then it reads a new PAT and replaces that one token. A search that hits several repos does not change the others. No match means they are not subscribed: use <code>add_repo.sh</code>.</td>
+        </tr>
+        <tr>
+          <td class="k">view_repos.sh</td>
+          <td>Prints the URLs with the tokens masked.</td>
+        </tr>
+        <tr>
+          <td class="k">remove_repo.sh</td>
+          <td>Removes one entry whose URL matches exactly.</td>
+        </tr>
+        <tr>
+          <td class="k">delete_repo.sh</td>
+          <td>Removes every entry whose URL contains the search string. Confirm only if that is what you mean.</td>
+        </tr>
+        <tr>
+          <td class="k">publish_status.sh</td>
+          <td>Presses the Luffy status button. Run it after adding a repo or replacing a PAT. The new mark appears when that workflow finishes, not when this command returns.</td>
+        </tr>
+        <tr>
+          <td class="k">update_price_history.sh</td>
+          <td>The afternoon job. Starts Gateway. Do not run it just to refresh the dashboard.</td>
+        </tr>
+        <tr>
+          <td class="k">apply_robin_schema.sh</td>
+          <td>Applies <code>robin/schema.sql</code> once. Deploy does not run it. Refuses if <code>price_bars</code> already has rows unless you pass <code>--force</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      A student PAT is fine-grained, on that one repository, with Contents
+      set to Read and write. The click-by-click version is the collapsed
+      section on the dashboard. The URL they send is the green Code URL, not
+      a <code>github.io</code> address. Store it with <code>add_repo.sh</code>
+      or replace it with <code>update_pat.sh</code>.
+    </p>
+    <p>The JSON on CT 200 looks like this. The token here is a placeholder.</p>
+<pre><code>[
+  {
+    "repo": "https://github.com/owner/repo",
+    "token": "github_pat_..."
+  }
+]</code></pre>
+
+    <h2>The two workflows</h2>
+    <p>
+      <a href="https://github.com/JakeVestal/server-logic-533/actions/workflows/deploy.yml">Deploy to Luffy</a>
+      runs on a push to <code>main</code> that touches <code>server_files/**</code>
+      or <code>host_files/**</code>. It joins Tailscale, SSHs to Luffy, runs
+      <code>git fetch</code> and <code>git reset --hard origin/main</code> in
+      <code>/opt/server-logic-533</code>, then
+      <code>host_files/deploy-server-logic.sh</code>.
+    </p>
+    <p>Deploy does four things:</p>
+    <ul>
+      <li>Installs the host scripts into <code>/opt/trading</code> with mode 755.</li>
+      <li>Appends the <code>publish_status.sh</code> call to the installed price script, because a fresh install would otherwise drop it. The append is skipped when the call is already there.</li>
+      <li>Tars <code>server_files/</code> into CT 200 <code>/opt/trading/</code>. This overwrites the Python program. It does not delete <code>student_repos.json</code>, <code>robin_writer.password</code>, or the venv, because those are not in <code>server_files/</code>. Do not add them to git.</li>
+      <li>Pip-installs <code>psycopg[binary]</code> into the CT 200 venv. It does not install the other Python packages, and it does not apply the Robin schema.</li>
+    </ul>
+    <p>
+      <a href="https://github.com/JakeVestal/server-logic-533/actions/workflows/status.yml">Luffy status</a>
+      checks out the repo, joins Tailscale, and SSHs. The SSH action is
+      <code>appleboy/ssh-action@v1.2.5</code> with <code>capture_stdout: true</code>.
+      Do not downgrade that action. The v1.0.3 used by Deploy does not capture
+      stdout, and Deploy does not need it to. The probe output is cut between
+      the <code>DASHBOARD_JSON</code> markers, written to
+      <code>docs/status.json</code>, and pushed as
+      <code>github-actions[bot]</code> when the file changed.
+    </p>
+    <p>GitHub Actions secrets, set on this repo, values not written down here:</p>
+    <table>
+      <thead><tr><th>Secret</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td class="k">TAILSCALE_AUTHKEY</td><td>A Tailscale auth key that can join the tailnet. The runner has no route to Luffy without it.</td></tr>
+        <tr><td class="k">HOMELAB_HOST</td><td>Luffy's Tailscale address. Not a public DNS name.</td></tr>
+        <tr><td class="k">HOMELAB_SSH_KEY</td><td>The private key whose public half is in Luffy's root <code>authorized_keys</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Rebuild Luffy</h2>
+    <ol>
+      <li>Install Proxmox. Install Tailscale and join the tailnet. Install git.</li>
+      <li>Create an SSH key for GitHub Actions. Put the public key in <code>/root/.ssh/authorized_keys</code> on Luffy. Put the private key in the <code>HOMELAB_SSH_KEY</code> secret. Put Luffy's Tailscale address in <code>HOMELAB_HOST</code>. Put a Tailscale auth key in <code>TAILSCALE_AUTHKEY</code>.</li>
+      <li>Clone <code>https://github.com/JakeVestal/server-logic-533.git</code> to <code>/opt/server-logic-533</code>. The Actions user must be able to <code>git fetch</code> it.</li>
+      <li>In the GitHub repo, set Pages to deploy from branch <code>main</code>, folder <code>/docs</code>. The repo contains <code>docs/.nojekyll</code>.</li>
+      <li>Create the dispatch token file shown above.</li>
+      <li>Install the cron line. Confirm the host timezone before you pick 16:00 versus 20:00 or 21:00 UTC.</li>
+    </ol>
+
+    <h2>Rebuild Sanji, CT 200</h2>
+    <p>
+      Unprivileged Debian LXC, hostname <code>sanji</code>, on Luffy's
+      <code>vmbr0</code>, with enough disk for the Gateway and a Python venv.
+      Nesting is required because Gateway and Xvfb run inside the container.
+    </p>
+<pre><code>pct exec 200 -- bash -c '
+  apt update
+  apt install -y openjdk-17-jre-headless xvfb python3 python3-venv python3-pip git ca-certificates
+  useradd -m -s /bin/bash ibgateway || true
+  mkdir -p /opt/trading
+  python3 -m venv /opt/trading/venv
+  /opt/trading/venv/bin/pip install ib_insync requests "psycopg[binary]" exchange_calendars
+'</code></pre>
+    <p>
+      Install IBC and the IB Gateway under <code>/opt/ibc</code> so that
+      <code>/opt/ibc/gatewaystart.sh</code> exists. The paper username,
+      password, and API settings live in the IBC config on that container.
+      They are not in git. The API port is 4002. Logs and Jts settings live
+      under <code>/home/ibgateway/</code>.
+    </p>
+    <p>
+      Create the two secret files inside the container, mode 600, owner root.
+      Type them. Do not put them in the shell command, or they land in history.
+    </p>
+<pre><code>umask 077
+read -r -s -p "robin_writer password: " P
+printf '%s\n' "$P" > /tmp/robin_writer.password
+unset P
+pct push 200 /tmp/robin_writer.password /opt/trading/robin_writer.password
+rm -f /tmp/robin_writer.password
+pct exec 200 -- chmod 600 /opt/trading/robin_writer.password</code></pre>
+    <p>
+      Then add students with <code>/opt/trading/add_repo.sh</code> after the
+      first deploy has installed it. That creates
+      <code>student_repos.json</code>.
+    </p>
+
+    <h2>Rebuild Robin, CT 201</h2>
+    <ol>
+      <li>Unprivileged LXC with Postgres. Create a database named <code>robin</code>.</li>
+      <li>Give CT 200 a route to CT 201's Postgres port. Put that address and port in <code>ROBIN_HOST</code> and <code>ROBIN_PORT</code> in <code>server_files/update_prices.py</code>, then deploy.</li>
+      <li>From Luffy, after the repo is at <code>/opt/server-logic-533</code>, run <code>/opt/trading/apply_robin_schema.sh</code> once. It applies <code>robin/schema.sql</code> and prompts for the <code>robin_writer</code> password. Use the same password as the file on CT 200.</li>
+      <li><code>student_ro</code> can SELECT. <code>robin_writer</code> can SELECT, INSERT, and UPDATE. Neither password belongs in git. The schema drops <code>price_bars</code> and <code>assets</code>. The apply script refuses when <code>price_bars</code> has rows.</li>
+    </ol>
+    <p>
+      Tables: <code>assets</code> is one IB contract, keyed by conid.
+      <code>price_bars</code> is one daily bar per contract and session date.
+      Sanji writes <code>bar_size</code> as <code>1 day</code>.
+    </p>
+
+    <h2>What must not be published</h2>
+    <table>
+      <thead><tr><th>Thing</th><th>Where it lives</th></tr></thead>
+      <tbody>
+        <tr><td class="k">Student PATs</td><td>CT 200, <code>/opt/trading/student_repos.json</code>, mode 600. One token can write one student repo.</td></tr>
+        <tr><td class="k">Dispatch PAT</td><td>Luffy, <code>/opt/trading/status_dispatch.token</code>, mode 600. Can only start a workflow on this repo.</td></tr>
+        <tr><td class="k">Robin password</td><td>The role password in Postgres, and the same text in CT 200 <code>/opt/trading/robin_writer.password</code>.</td></tr>
+        <tr><td class="k">IB login</td><td>IBC config inside CT 200. Paper account.</td></tr>
+        <tr><td class="k">SSH private key and Tailscale auth key</td><td>GitHub Actions secrets only.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>File map</h2>
+    <table>
+      <thead><tr><th>Path</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td class="k">/opt/server-logic-533</td><td>Git checkout on Luffy. Actions resets it to <code>origin/main</code>.</td></tr>
+        <tr><td class="k">host_files/</td><td>Source for the Luffy scripts and the deploy script.</td></tr>
+        <tr><td class="k">server_files/update_prices.py</td><td>The price program. Deploy copies it into CT 200.</td></tr>
+        <tr><td class="k">robin/schema.sql</td><td>The database record. Applied by hand, once.</td></tr>
+        <tr><td class="k">docs/index.html</td><td>Dashboard.</td></tr>
+        <tr><td class="k">docs/order.html</td><td>Student spec for <code>positions.json</code> and <code>open_orders.json</code>. Not executed yet.</td></tr>
+        <tr><td class="k">docs/status.json</td><td>Written by the Luffy status workflow. Do not edit it by hand.</td></tr>
+        <tr><td class="k">docs/site.js</td><td>The nav bar on the three pages.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script src="site.js"></script>
+</body>
+</html>

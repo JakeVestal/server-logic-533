@@ -28,6 +28,7 @@
   bar.innerHTML =
     item("index.html", "Dashboard") +
     item("order.html", "Order menu") +
+    item("setup.html", "Setup") +
     '<a class="repo" href="https://github.com/JakeVestal/server-logic-533">GitHub repo</a>';
   var page = document.querySelector(".page");
   if (page) page.insertBefore(bar, page.firstChild);
