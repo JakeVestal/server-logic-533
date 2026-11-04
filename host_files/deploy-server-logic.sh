@@ -16,6 +16,21 @@ install -m 755 host_files/view_repos.sh     /opt/trading/view_repos.sh
 install -m 755 host_files/add_repo.sh       /opt/trading/add_repo.sh
 install -m 755 host_files/delete_repo.sh    /opt/trading/delete_repo.sh
 install -m 755 host_files/apply_robin_schema.sh /opt/trading/apply_robin_schema.sh
+install -m 755 host_files/publish_status.sh    /opt/trading/publish_status.sh
+
+# The price script in git does not call the publisher, so a 4pm run would
+# leave the website stale. install replaces the script on every deploy,
+# which drops a previous append, so add the call back once.
+if ! grep -q '/opt/trading/publish_status.sh' /opt/trading/update_price_history.sh; then
+  cat >> /opt/trading/update_price_history.sh << 'EOF'
+
+# Refresh the public dashboard. Does not start Gateway.
+# A missing token or a GitHub error must not fail the price run.
+if [[ -x /opt/trading/publish_status.sh ]]; then
+  /opt/trading/publish_status.sh || echo "[$(date +'%H:%M:%S')] Dashboard refresh was not requested."
+fi
+EOF
+fi
 
 # Container files
 pct exec "$CTID" -- mkdir -p /opt/trading

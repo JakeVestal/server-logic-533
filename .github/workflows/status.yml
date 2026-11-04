@@ -1,9 +1,11 @@
 name: Luffy status
 
+# No timer. Runs when:
+#   - you click Actions → Luffy status → Run workflow
+#   - Luffy calls publish_status.sh (manual, or the end of the price run)
+#   - a deploy of host_files/ or server_files/ succeeds
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_run:
     workflows: ["Deploy to Luffy"]
     types: [completed]
@@ -26,7 +28,7 @@ jobs:
 
       - name: Ask Luffy
         id: probe
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.HOMELAB_HOST }}
           username: root
