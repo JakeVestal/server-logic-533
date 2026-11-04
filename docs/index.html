@@ -3,6 +3,76 @@
 <head>
   <meta charset="utf-8">
   <title>Duke 533 — Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; background-color: #050b1c; }
+    .page {
+      background-color: #050b1c;
+      color: #e8eefc;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+      margin: 0 auto;
+      max-width: 920px;
+      border: 1px solid #d4a017;
+    }
+    .hero {
+      background-color: #061433;
+      border-bottom: 2px solid #d4a017;
+      padding: 26px 28px 22px;
+    }
+    .eyebrow {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 11px;
+      color: #d4a017;
+      margin: 0 0 8px 0;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 500;
+      color: #7cff55;
+      line-height: 1.25;
+      margin: 0;
+    }
+    h1 span { color: #e8a317; }
+    .body { padding: 18px 28px 28px; }
+    h2 {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 18px;
+      font-weight: 500;
+      color: #d4a017;
+      margin: 20px 0 10px 0;
+    }
+    p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
+    ol { margin: 0 0 16px 1.25em; padding: 0; }
+    li { margin: 0 0 8px 0; color: #d7e3fb; font-size: 15.5px; }
+    code {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      color: #7cff55;
+      font-size: 0.92em;
+    }
+    a { color: #3ecbff; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px 0; }
+    th {
+      text-align: left;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #d4a017;
+      padding: 8px 12px 8px 0;
+      border-bottom: 1px solid #d4a017;
+    }
+    td {
+      padding: 10px 12px 10px 0;
+      border-bottom: 1px solid #1a2a4a;
+      font-size: 15px;
+      color: #e8eefc;
+    }
+    td.empty { color: #8aa0c4; }
+    td.status { font-size: 18px; font-weight: 700; }
+    .ok { color: #7cff55; }
+    .bad { color: #ff5a5a; }
+    .idle { color: #8aa0c4; font-weight: 500; }
+  </style>
 </head>
 <body>
 <div class="page">
@@ -10,42 +80,85 @@
     <p class="eyebrow">server-logic-533</p>
     <h1>Luffy <span>dashboard</span></h1>
   </header>
-  <div class="meta">
-    <span id="badge" class="badge idle">checking…</span>
-    <span id="price-badge" class="badge idle">price run…</span>
-    <span id="asof"></span>
-  </div>
   <div class="body">
     <p>
       The users below are subscribed to the server. If your name is not
       there, you need to send a message to the instructor on Teams containing
-      the url of your GitHub repo and a PAT that will allow the server to
-      connect to your repo. Remember that the server needs your **repo**'s
-      url -- the one that you see when you click the green "code" button on
-      your repository's main code page -- *not* your website's url. use the
-      instructions below on how to properly create a PAT.
+      the URL of your GitHub repo and a PAT that will allow the server to
+      connect to your repo. Remember that the server needs your
+      <strong>repo</strong>'s URL — the one that you see when you click the
+      green <strong>Code</strong> button on your repository's main code page
+      — <em>not</em> your website's URL. Use the instructions below on how to
+      properly create a PAT.
     </p>
     <p>
-      If your status is "green", then you are connected and set up. If your
-      status is "red", contact the instructor for troubleshooting (it's
-      probably your PAT, which should have read & write permissions for your
-      repo).
+      A green check means you are connected and set up. A red X means you
+      should contact the instructor for troubleshooting. It is probably your
+      PAT, which needs read and write permission on your repo.
     </p>
-    <div>
-      for properly configuring a student's PAT for this project
-    </div>
+
+    <h2>How to create your PAT</h2>
+    <ol>
+      <li>Sign in to GitHub.</li>
+      <li>
+        Open
+        <a href="https://github.com/settings/personal-access-tokens/new">github.com/settings/personal-access-tokens/new</a>.
+        Use this page. Do not use the classic token page.
+      </li>
+      <li>Token name: <code>duke-533</code>. Description can stay blank.</li>
+      <li>Resource owner: your own account, not an organization.</li>
+      <li>
+        Expiration: choose <strong>Custom</strong> and pick a date after this
+        course ends. If you do not know that date, pick a date 180 days from
+        today. Do not leave the default, and do not pick 7 or 30 days.
+      </li>
+      <li>
+        Repository access: <strong>Only select repositories</strong>. Select
+        the one repository you created for this class. Do not select
+        <strong>All repositories</strong>.
+      </li>
+      <li>
+        Open <strong>Repository permissions</strong>. Find
+        <strong>Contents</strong>. Set it to <strong>Read and write</strong>.
+        Leave every other permission on <strong>No access</strong>.
+      </li>
+      <li>Click <strong>Generate token</strong>.</li>
+      <li>
+        Copy the token immediately. It starts with <code>github_pat_</code>
+        and GitHub shows it only once. If you leave the page without copying
+        it, generate a new one.
+      </li>
+      <li>
+        Send the instructor a Teams message with two things: the token, and
+        the repository URL from the green <strong>Code</strong> button. It
+        looks like <code>https://github.com/your-username/your-repo</code>.
+        Do not send a <code>github.io</code> address.
+      </li>
+    </ol>
+    <p>
+      Do not commit the token, and do not paste it into the repository or the
+      class chat. If your row is a red X after you have been added, the token
+      on file cannot write to that repository. Make a new one with
+      <strong>Contents</strong> set to <strong>Read and write</strong> on
+      that exact repository, and send it to the instructor.
+    </p>
+
     <table>
       <thead>
-      <tr><th>GitHub user</th><th>Repository</th><th>Last server
-        update</th></tr>
+        <tr>
+          <th>GitHub user</th>
+          <th>Repository</th>
+          <th>Last server update</th>
+          <th>Status</th>
+        </tr>
       </thead>
       <tbody id="rows">
-      <tr><td colspan="3" class="empty">Loading…</td></tr>
+        <tr><td colspan="4" class="empty">Loading…</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 <script src="site.js"></script>
-<script src="dashboard.js?v=2"></script>
+<script src="dashboard.js?v=3"></script>
 </body>
 </html>
