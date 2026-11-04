@@ -136,33 +136,44 @@ log "Waiting 15s for disclaimer dialogs to clear..."
 sleep 15
 
 log "Running price update..."
-if ! pct exec "$CTID" -- /opt/trading/venv/bin/python /opt/trading/update_prices.py; then
-  log "update_prices.py failed"
-  # fall through to cleanup
+py_log=$(mktemp)
+set +e
+pct exec "$CTID" -- /opt/trading/venv/bin/python /opt/trading/update_prices.py >"$py_log" 2>&1
+py_status=$?
+set -e
+
+# Per-repo detail now. The "=== Summary ===" block is held for the end.
+if grep -q '^=== Summary ===' "$py_log"; then
+  awk 'BEGIN{p=1} /^=== Summary ===/{exit} {print}' "$py_log"
+else
+  cat "$py_log"
 fi
-log "Price run status:"
-pct exec "$CTID" -- cat /opt/trading/price_run.json 2>/dev/null || log "(no status file)"
-log "Price update finished (see summary above)"
 
 log "Stopping IB Gateway..."
 cleanup_gateway
 sleep 2
 
-# Final leftover sweep: list, kill, verify
-log "Checking for leftover processes..."
-leftovers=$(pct exec "$CTID" -- bash -c '
-  ps -eo pid,user,etime,cmd --no-headers 2>/dev/null \
-    | grep -E "ibc|gateway|tws|java|Xvfb" \
-    | grep -v grep \
-    || true
-' || true)
+# Compact process list: pid, user, elapsed, command name. Not the Java classpath.
+list_leftovers() {
+  pct exec "$CTID" -- bash -c '
+    ps -eo pid,user,etime,comm,args --no-headers 2>/dev/null \
+      | grep -E "ibc|gateway|tws|java|Xvfb" \
+      | grep -v grep \
+      | awk "{print \$1, \$2, \$3, \$4}" \
+      || true
+  ' || true
+}
 
+log "=================================================="
+log "LEFTOVERS"
+log "=================================================="
+leftovers=$(list_leftovers)
 if [[ -n "${leftovers//[[:space:]]/}" ]]; then
-  log "Leftovers found:"
+  log "Found:"
   echo "$leftovers" | sed 's/^/  /'
   log "Killing leftovers..."
   pct exec "$CTID" -- bash -c '
-    pids=$(ps -eo pid,cmd --no-headers 2>/dev/null \
+    pids=$(ps -eo pid,args --no-headers 2>/dev/null \
       | grep -E "ibc|gateway|tws|java|Xvfb" \
       | grep -v grep \
       | awk "{print \$1}")
@@ -171,14 +182,9 @@ if [[ -n "${leftovers//[[:space:]]/}" ]]; then
     fi
   ' || true
   sleep 1
-  leftovers=$(pct exec "$CTID" -- bash -c '
-    ps -eo pid,user,etime,cmd --no-headers 2>/dev/null \
-      | grep -E "ibc|gateway|tws|java|Xvfb" \
-      | grep -v grep \
-      || true
-  ' || true)
+  leftovers=$(list_leftovers)
   if [[ -n "${leftovers//[[:space:]]/}" ]]; then
-    log "WARNING: processes still present after kill:"
+    log "WARNING: still present after kill:"
     echo "$leftovers" | sed 's/^/  /'
   else
     log "Leftovers cleared."
@@ -187,6 +193,27 @@ else
   log "No leftover processes."
 fi
 
-log "Refresh complete. ✓"
-log "Latest IBC log:"
-pct exec "$CTID" -- bash -c "ls -t $LOG_DIR/ibc-*.txt | head -1 | xargs tail -20" || true
+log "=================================================="
+log "IBC LOG (last 15 lines)"
+log "=================================================="
+pct exec "$CTID" -- bash -c "ls -t $LOG_DIR/ibc-*.txt 2>/dev/null | head -1 | xargs tail -15" || log "(no ibc log)"
+
+echo
+log "=================================================="
+log "SUMMARY"
+log "=================================================="
+if grep -q '^=== Summary ===' "$py_log"; then
+  awk '/^=== Summary ===/,0' "$py_log"
+else
+  log "(python printed no summary)"
+fi
+echo
+log "price_run.json:"
+pct exec "$CTID" -- cat /opt/trading/price_run.json 2>/dev/null || log "(no status file)"
+echo
+if (( py_status == 0 )); then
+  log "Result: SUCCESS"
+else
+  log "Result: FAILED"
+fi
+rm -f "$py_log"

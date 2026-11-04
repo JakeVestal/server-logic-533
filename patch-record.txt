@@ -24,3 +24,4 @@
 533serverlogic-028-robin-schema.patch
 533serverlogic-029-rename-right.patch
 533serverlogic-030-schema-guard.patch
+533serverlogic-031-summary-at-end.patch
