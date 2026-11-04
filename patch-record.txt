@@ -30,3 +30,4 @@
 533serverlogic-034-update-pat.patch
 533serverlogic-035-fetch-today.patch
 533serverlogic-036-claim-ib-session.patch
+533serverlogic-037-cron-path.patch

@@ -3,6 +3,9 @@
 # Robust against cold starts / reboots.
 set -euo pipefail
 
+# cron's PATH is /usr/bin:/bin. pct is /usr/sbin/pct.
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+
 CTID=200
 IBG_USER=ibgateway
 LOG_DIR=/home/${IBG_USER}/ibc/logs
@@ -35,9 +38,17 @@ except ImportError:
 PY
 }
 
-if ! market_open_today; then
+# Exit 1 from the calendar means closed. Any other failure means the check
+# itself broke (missing pct, missing venv) and must not be treated as a holiday.
+market_status=0
+market_open_today || market_status=$?
+if (( market_status == 1 )); then
   log "US markets closed today (weekend or holiday). Exiting without starting Gateway."
   exit 0
+fi
+if (( market_status != 0 )); then
+  log "ERROR: market calendar check failed (exit ${market_status}). Not a holiday."
+  exit 1
 fi
 
 dump_diagnostics() {
