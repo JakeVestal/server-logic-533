@@ -22,3 +22,4 @@
 533serverlogic-026-rename-refresh-to-update-price-history.patch
 533serverlogic-027-market-open-check.patch
 533serverlogic-028-robin-schema.patch
+533serverlogic-029-rename-right.patch

@@ -22,14 +22,14 @@ CREATE TABLE assets (
   currency   TEXT NOT NULL DEFAULT 'USD',
   strike     NUMERIC,
   expiry     DATE,
-  right      TEXT,
+  contract_right TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX assets_symbol_idx ON assets (symbol);
 
 COMMENT ON TABLE assets IS 'One IB contract. Primary key is the IB conid.';
-COMMENT ON COLUMN assets.right IS 'Option right: C or P. Null for non-options.';
+COMMENT ON COLUMN assets.contract_right IS 'Option right: C or P. Null for non-options.';
 
 CREATE TABLE price_bars (
   conid    BIGINT NOT NULL REFERENCES assets (conid) ON DELETE CASCADE,
