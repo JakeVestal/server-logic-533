@@ -96,6 +96,7 @@
   </header>
   <div class="meta">
     <span id="badge" class="badge idle">checking…</span>
+    <span id="price-badge" class="badge idle">price run…</span>
     <span id="asof"></span>
   </div>
   <div class="body">
@@ -103,7 +104,8 @@
       Subscribed repos on Sanji, CT 200. The user column is the GitHub
       owner parsed from the repo URL. Last update is the last time this
       system pushed <code>price_history.json</code>, not the last time
-      the student committed.
+      the student committed. The price-run badge is the IB refresh that
+      also writes those bars into Robin.
     </p>
     <table>
       <thead>
@@ -116,13 +118,14 @@
     <p class="note">
       This page does not SSH. A workflow on a 15-minute schedule SSHs
       to Luffy, reads the repo list there, and writes
-      <code>status.json</code>. Tokens stay on CT 200. If the badge is
-      green, that probe reached the host. Run it by hand from
+      <code>status.json</code>. Tokens stay on CT 200. The first badge
+      is that probe. The second badge is the last price run, including
+      the Robin write. Run the probe by hand from
       <a href="https://github.com/JakeVestal/server-logic-533/actions/workflows/status.yml">Luffy status</a>.
     </p>
   </div>
 </div>
 <script src="site.js"></script>
-<script src="dashboard.js"></script>
+<script src="dashboard.js?v=2"></script>
 </body>
 </html>

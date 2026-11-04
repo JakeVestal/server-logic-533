@@ -68,10 +68,22 @@ for entry in data:
         row["note"] = note
     repos.append(row)
 
+price_run = None
+try:
+    with open("/opt/trading/price_run.json") as f:
+        loaded = json.load(f)
+    if isinstance(loaded, dict):
+        price_run = loaded
+except FileNotFoundError:
+    price_run = None
+except Exception:
+    price_run = {"ok": False, "error": "could not read price_run.json"}
+
 out = {
     "probed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "ok": True,
     "host": "luffy",
+    "price_run": price_run,
     "repos": repos,
 }
 print("===DASHBOARD_JSON_START===")

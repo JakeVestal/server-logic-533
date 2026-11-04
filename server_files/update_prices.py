@@ -4,24 +4,39 @@ Fetch price_history.json from each subscribed repo,
 update tracked contracts via IB Gateway,
 and push the updated file back.
 
+The same bars are upserted into Robin (Postgres on CT 201).
+The robin_writer password is read from /opt/trading/robin_writer.password
+and is never printed. A short result is written to
+/opt/trading/price_run.json for the dashboard.
+
 Supports per-repo tokens via /opt/trading/student_repos.json.
 Falls back to the legacy single-token + subscribed_repos.txt path
 if that file is absent.
 """
 
 import json
+import os
+import sys
 import base64
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from ib_insync import IB, Contract
 
 STUDENT_REPOS_FILE = "/opt/trading/student_repos.json"
 LEGACY_TOKEN_FILE = "/opt/trading/github_token"
 LEGACY_REPOS_FILE = "/opt/trading/subscribed_repos.txt"
+ROBIN_PASSWORD_FILE = "/opt/trading/robin_writer.password"
+PRICE_RUN_FILE = "/opt/trading/price_run.json"
 
 IB_HOST = "127.0.0.1"
 IB_PORT = 4002
 CLIENT_ID = 1
+BAR_SIZE = "1 day"
+
+ROBIN_HOST = "192.168.1.202"
+ROBIN_PORT = 5432
+ROBIN_DB = "robin"
+ROBIN_USER = "robin_writer"
 
 # Seed ConIDs used when a student repo has no price_history.json yet.
 # One is chosen at random to confirm two-way connectivity.
@@ -120,114 +135,283 @@ def put_file(owner, repo, path, content, sha, message, token):
     r.raise_for_status()
 
 
+def parse_expiry(raw):
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    for fmt in ("%Y%m%d", "%Y%m"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def open_robin():
+    """Connect as robin_writer. Raises if the password file or login fails."""
+    password = open(ROBIN_PASSWORD_FILE).read().strip()
+    if not password:
+        raise RuntimeError(f"{ROBIN_PASSWORD_FILE} is empty")
+    import psycopg
+    return psycopg.connect(
+        host=ROBIN_HOST,
+        port=ROBIN_PORT,
+        dbname=ROBIN_DB,
+        user=ROBIN_USER,
+        password=password,
+        connect_timeout=10,
+        application_name="sanji-price-update",
+    )
+
+
+def upsert_contract(conn, conid, info, contract):
+    """Write the contract and every daily bar currently in price_history."""
+    sec_type = getattr(contract, "secType", None) or "STK"
+    symbol = (getattr(contract, "symbol", None) or "").strip() or str(conid)
+    name = (info.get("name") or "").strip() or None
+    exchange = (getattr(contract, "exchange", None) or "").strip() or None
+    currency = (getattr(contract, "currency", None) or "").strip() or "USD"
+    strike = None
+    expiry = None
+    right = None
+    if sec_type in ("OPT", "FOP"):
+        strike = getattr(contract, "strike", None)
+        right = (getattr(contract, "right", None) or "").strip() or None
+        expiry = parse_expiry(getattr(contract, "lastTradeDateOrContractMonth", None))
+
+    rows = []
+    history = info.get("price_history") or {}
+    for date_str, bar in history.items():
+        if not isinstance(bar, dict):
+            continue
+        try:
+            bar_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            prices = (bar["open"], bar["high"], bar["low"], bar["close"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        volume = bar.get("volume")
+        if volume is not None:
+            volume = int(float(volume))
+        rows.append((int(conid), BAR_SIZE, bar_date, prices[0], prices[1], prices[2], prices[3], volume))
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO assets (
+              conid, symbol, name, sec_type, exchange, currency,
+              strike, expiry, contract_right
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (conid) DO UPDATE SET
+              symbol = EXCLUDED.symbol,
+              name = EXCLUDED.name,
+              sec_type = EXCLUDED.sec_type,
+              exchange = EXCLUDED.exchange,
+              currency = EXCLUDED.currency,
+              strike = EXCLUDED.strike,
+              expiry = EXCLUDED.expiry,
+              contract_right = EXCLUDED.contract_right
+            """,
+            (int(conid), symbol, name, sec_type, exchange, currency, strike, expiry, right),
+        )
+        if rows:
+            cur.executemany(
+                """
+                INSERT INTO price_bars (
+                  conid, bar_size, bar_date, open, high, low, close, volume
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (conid, bar_size, bar_date) DO UPDATE SET
+                  open = EXCLUDED.open,
+                  high = EXCLUDED.high,
+                  low = EXCLUDED.low,
+                  close = EXCLUDED.close,
+                  volume = EXCLUDED.volume
+                """,
+                rows,
+            )
+    conn.commit()
+    return len(rows)
+
+
+def write_status(status):
+    status["finished_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    status["ok"] = bool(status["github_ok"] and status["robin_ok"] and not status["error"])
+    tmp = PRICE_RUN_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(status, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, PRICE_RUN_FILE)
+
+
 def main():
-    targets = load_targets()
-    if not targets:
-        print("No repos to process")
-        return
+    status = {
+        "finished_at": None,
+        "ok": False,
+        "github_ok": True,
+        "robin_ok": True,
+        "repos_seen": 0,
+        "repos_pushed": 0,
+        "bars_upserted": 0,
+        "error": None,
+    }
+    errors = []
+    ib = None
+    robin = None
 
-    ib = IB()
-    ib.connect(IB_HOST, IB_PORT, clientId=CLIENT_ID)
+    try:
+        targets = load_targets()
+        status["repos_seen"] = len(targets)
+        if not targets:
+            errors.append("No repos to process")
+        else:
+            try:
+                robin = open_robin()
+                print(f"Robin connected at {ROBIN_HOST}:{ROBIN_PORT}")
+            except Exception as exc:
+                status["robin_ok"] = False
+                errors.append("Robin: " + str(exc))
+                print(f"ERROR connecting to Robin: {exc}")
 
-    updated_repos = []
-    for owner, repo, token in targets:
-        print(f"Processing {owner}/{repo}")
-        sha = None
-        try:
-            data, sha = get_file(owner, repo, "price_history.json", token)
-        except requests.HTTPError as exc:
-            if exc.response is not None and exc.response.status_code == 404:
-                import random
-                symbol, conid, name = random.choice(SEED_CONIDS)
-                print(f"  no price_history.json — seeding with {symbol} ({conid}, {name})")
-                data = {
-                    str(conid): {
-                        "tracked": True,
-                        "name": name,
-                        "price_history": {},
-                    }
-                }
-                # sha stays None so put_file creates the file
+            ib = IB()
+            ib.connect(IB_HOST, IB_PORT, clientId=CLIENT_ID)
+
+            updated_repos = []
+            for owner, repo, token in targets:
+                print(f"Processing {owner}/{repo}")
+                sha = None
+                try:
+                    data, sha = get_file(owner, repo, "price_history.json", token)
+                except requests.HTTPError as exc:
+                    if exc.response is not None and exc.response.status_code == 404:
+                        import random
+                        symbol, conid, name = random.choice(SEED_CONIDS)
+                        print(f"  no price_history.json — seeding with {symbol} ({conid}, {name})")
+                        data = {
+                            str(conid): {
+                                "tracked": True,
+                                "name": name,
+                                "price_history": {},
+                            }
+                        }
+                    else:
+                        print(f"  ERROR reading price_history.json: {exc}")
+                        status["github_ok"] = False
+                        errors.append(f"{owner}/{repo}: read failed")
+                        continue
+                except Exception as exc:
+                    print(f"  ERROR reading price_history.json: {exc}")
+                    status["github_ok"] = False
+                    errors.append(f"{owner}/{repo}: read failed")
+                    continue
+
+                changed = False
+                for conid, info in data.items():
+                    if not info.get("tracked"):
+                        continue
+
+                    contract = Contract(conId=int(conid))
+                    ib.qualifyContracts(contract)
+
+                    history = info.get("price_history", {})
+                    if history:
+                        last = max(history.keys())
+                        start = datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1)
+                    else:
+                        start = datetime.now() - timedelta(days=30)
+
+                    end = datetime.now()
+                    if start.date() >= end.date():
+                        print(f"  {conid}: up to date")
+                    else:
+                        bars = ib.reqHistoricalData(
+                            contract,
+                            endDateTime=end,
+                            durationStr=f"{(end - start).days + 1} D",
+                            barSizeSetting=BAR_SIZE,
+                            whatToShow="TRADES",
+                            useRTH=True,
+                            formatDate=1,
+                        )
+
+                        for bar in bars:
+                            date_str = bar.date.strftime("%Y-%m-%d")
+                            history[date_str] = {
+                                "open": bar.open,
+                                "high": bar.high,
+                                "low": bar.low,
+                                "close": bar.close,
+                                "volume": bar.volume,
+                            }
+                        info["price_history"] = history
+                        changed = True
+
+                    if robin is None:
+                        continue
+                    try:
+                        written = upsert_contract(robin, conid, info, contract)
+                        status["bars_upserted"] += written
+                        print(f"  {conid}: {written} bars in Robin")
+                    except Exception as exc:
+                        status["robin_ok"] = False
+                        errors.append(f"{owner}/{repo} {conid}: Robin write failed")
+                        print(f"  ERROR writing Robin for {conid}: {exc}")
+
+                if not changed:
+                    print("  no GitHub update needed")
+                    continue
+
+                updated = json.dumps(data, indent=2)
+                try:
+                    put_file(
+                        owner, repo, "price_history.json", updated, sha,
+                        f"Update price history {datetime.now():%Y-%m-%d}",
+                        token,
+                    )
+                    print("  pushed updated price_history.json")
+                    assets = []
+                    for cid, info in data.items():
+                        nm = info.get("name", "")
+                        assets.append(f"{cid} ({nm})" if nm else cid)
+                    updated_repos.append((owner, repo, assets))
+                    status["repos_pushed"] += 1
+                except Exception as exc:
+                    status["github_ok"] = False
+                    errors.append(f"{owner}/{repo}: push failed")
+                    print(f"  ERROR pushing: {exc}")
+
+            print()
+            print("=== Summary ===")
+            if not updated_repos:
+                print("No repos updated on GitHub")
             else:
-                print(f"  ERROR reading price_history.json: {exc}")
-                continue
-        except Exception as exc:
-            print(f"  ERROR reading price_history.json: {exc}")
-            continue
-
-        changed = False
-        for conid, info in data.items():
-            if not info.get("tracked"):
-                continue
-
-            contract = Contract(conId=int(conid))
-            ib.qualifyContracts(contract)
-
-            history = info.get("price_history", {})
-            if history:
-                last = max(history.keys())
-                start = datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1)
-            else:
-                start = datetime.now() - timedelta(days=30)
-
-            end = datetime.now()
-            if start.date() >= end.date():
-                print(f"  {conid}: up to date")
-                continue
-
-            bars = ib.reqHistoricalData(
-                contract,
-                endDateTime=end,
-                durationStr=f"{(end - start).days + 1} D",
-                barSizeSetting="1 day",
-                whatToShow="TRADES",
-                useRTH=True,
-                formatDate=1,
-            )
-
-            for bar in bars:
-                date_str = bar.date.strftime("%Y-%m-%d")
-                history[date_str] = {
-                    "open": bar.open,
-                    "high": bar.high,
-                    "low": bar.low,
-                    "close": bar.close,
-                    "volume": bar.volume,
-                }
-            info["price_history"] = history
-            changed = True
-
-        if not changed:
-            print("  no updates needed")
-            continue
-
-        updated = json.dumps(data, indent=2)
+                for owner, repo, conids in updated_repos:
+                    print(f"  {owner}/{repo}: {', '.join(conids)}")
+            print(f"Total: {status['repos_pushed']} repo(s) pushed, {status['bars_upserted']} bars upserted")
+    except Exception as exc:
+        errors.append(str(exc))
+        print(f"ERROR: {exc}")
+    finally:
+        if ib is not None:
+            try:
+                ib.disconnect()
+            except Exception:
+                pass
+        if robin is not None:
+            try:
+                robin.close()
+            except Exception:
+                pass
+        if errors:
+            status["error"] = "; ".join(errors)[:500]
         try:
-            put_file(
-                owner, repo, "price_history.json", updated, sha,
-                f"Update price history {datetime.now():%Y-%m-%d}",
-                token,
-            )
-            print("  pushed updated price_history.json")
-            assets = []
-            for cid, info in data.items():
-                nm = info.get("name", "")
-                assets.append(f"{cid} ({nm})" if nm else cid)
-            updated_repos.append((owner, repo, assets))
+            write_status(status)
+            print(f"Wrote {PRICE_RUN_FILE}")
         except Exception as exc:
-            print(f"  ERROR pushing: {exc}")
-
-    ib.disconnect()
-
-    print()
-    print("=== Summary ===")
-    if not updated_repos:
-        print("No repos updated")
-    else:
-        for owner, repo, conids in updated_repos:
-            print(f"  {owner}/{repo}: {', '.join(conids)}")
-    print(f"Total: {len(updated_repos)} repo(s) updated")
+            print(f"ERROR writing {PRICE_RUN_FILE}: {exc}")
+            status["ok"] = False
+    return 0 if status["ok"] else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -140,6 +140,8 @@ if ! pct exec "$CTID" -- /opt/trading/venv/bin/python /opt/trading/update_prices
   log "update_prices.py failed"
   # fall through to cleanup
 fi
+log "Price run status:"
+pct exec "$CTID" -- cat /opt/trading/price_run.json 2>/dev/null || log "(no status file)"
 log "Price update finished (see summary above)"
 
 log "Stopping IB Gateway..."

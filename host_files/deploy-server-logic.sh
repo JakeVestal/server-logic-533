@@ -20,6 +20,7 @@ install -m 755 host_files/apply_robin_schema.sh /opt/trading/apply_robin_schema.
 # Container files
 pct exec "$CTID" -- mkdir -p /opt/trading
 tar -C server_files -cf - . | pct exec "$CTID" -- tar -C /opt/trading -xf -
+pct exec "$CTID" -- /opt/trading/venv/bin/pip install --disable-pip-version-check 'psycopg[binary]'
 
 echo "Deployed $(date)"
 echo "  host:  /opt/trading/update_price_history.sh"

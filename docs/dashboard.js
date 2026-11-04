@@ -1,5 +1,6 @@
 (function () {
   var badge = document.getElementById("badge");
+  var priceBadge = document.getElementById("price-badge");
   var asof = document.getElementById("asof");
   var body = document.getElementById("rows");
 
@@ -22,6 +23,12 @@
     });
   }
 
+  function setPrice(kind, text) {
+    if (!priceBadge) return;
+    priceBadge.className = "badge " + kind;
+    priceBadge.textContent = text;
+  }
+
   function paint(data) {
     var probed = data && data.probed_at;
     if (!probed) {
@@ -36,6 +43,20 @@
       else if (ageMin > 40) setBadge("stale", "status is stale");
       else setBadge("ok", "Luffy answering");
       asof.textContent = "Probed " + fmt(probed);
+    }
+
+    var run = data && data.price_run;
+    if (!run || !run.finished_at) {
+      setPrice("idle", "no price run yet");
+    } else if (run.ok) {
+      setPrice("ok", "price run ok");
+      asof.textContent += " · Robin " + (run.bars_upserted || 0) +
+        " bars, " + (run.repos_pushed || 0) + " repo(s) pushed " +
+        fmt(run.finished_at);
+    } else {
+      setPrice("bad", "price run failed");
+      asof.textContent += " · " + (run.error || "price run failed") +
+        " (" + fmt(run.finished_at) + ")";
     }
 
     var repos = (data && data.repos) || [];
