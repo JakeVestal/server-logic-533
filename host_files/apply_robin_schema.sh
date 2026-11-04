@@ -77,6 +77,9 @@ PY
 unset ROBIN_WRITER_PASSWORD
 pct push "$CTID" "$pw_file" "$remote_pw"
 rm -f "$pw_file"
+# pct push keeps the host mode (600, root). postgres must own it or psql cannot read it.
+pct exec "$CTID" -- chown postgres:postgres "$remote_pw"
+pct exec "$CTID" -- chmod 600 "$remote_pw"
 pct exec "$CTID" -- su - postgres -c \
   "psql -d robin -v ON_ERROR_STOP=1 -f $remote_pw"
 
