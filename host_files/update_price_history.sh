@@ -80,6 +80,31 @@ log "Clearing any leftover Gateway / Xvfb processes..."
 cleanup_gateway
 sleep 1
 
+# primary: this login clicks Continue and IB drops the other session (phone,
+# Client Portal, another Gateway). manual waits forever. primaryoverride lets
+# the phone kick Sanji off, so do not use it here.
+log "Setting ExistingSessionDetectedAction=primary..."
+pct exec "$CTID" -- python3 - << 'PY'
+from pathlib import Path
+path = Path("/opt/ibc/config.ini")
+if not path.is_file():
+    print("WARNING: /opt/ibc/config.ini not found. Session takeover not set.")
+    raise SystemExit(0)
+lines = path.read_text().splitlines()
+out = []
+found = False
+for line in lines:
+    if line.split("=", 1)[0].strip() == "ExistingSessionDetectedAction":
+        out.append("ExistingSessionDetectedAction=primary")
+        found = True
+    else:
+        out.append(line)
+if not found:
+    out.append("ExistingSessionDetectedAction=primary")
+path.write_text("\n".join(out) + "\n")
+print("ExistingSessionDetectedAction=primary")
+PY
+
 log "Starting IB Gateway (CT $CTID)..."
 pct exec "$CTID" -- su - "$IBG_USER" -c '
   # Start Xvfb and wait until it is actually running
