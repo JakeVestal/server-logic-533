@@ -1,4 +1,4 @@
-name: Deploy to Homelab
+name: Deploy to Luffy
 
 on:
   push:
