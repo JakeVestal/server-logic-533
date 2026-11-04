@@ -10,6 +10,36 @@ MAX_WAIT_SECS=300   # 5 minutes for Gateway to become ready
 
 log() { echo "[$(date +'%H:%M:%S')] $*"; }
 
+# ---------------------------------------------------------------------------
+# Early exit on weekends and US market holidays (no Gateway start)
+# ---------------------------------------------------------------------------
+market_open_today() {
+  # Runs inside CT200 using the trading venv (exchange_calendars)
+  pct exec "$CTID" -- /opt/trading/venv/bin/python - << 'PY'
+import sys
+from datetime import date
+try:
+    import exchange_calendars as xcals
+    cal = xcals.get_calendar("XNYS")
+    today = date.today()
+    if cal.is_session(today):
+        sys.exit(0)   # open
+    else:
+        sys.exit(1)   # closed
+except ImportError:
+    # Fallback: weekend-only check if the package is missing
+    import datetime
+    if datetime.date.today().weekday() >= 5:
+        sys.exit(1)
+    sys.exit(0)
+PY
+}
+
+if ! market_open_today; then
+  log "US markets closed today (weekend or holiday). Exiting without starting Gateway."
+  exit 0
+fi
+
 dump_diagnostics() {
   log "=== Diagnostics ==="
   log "--- processes ---"
