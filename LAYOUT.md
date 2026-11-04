@@ -7,11 +7,20 @@ Snapshot of key paths for the 533 trading system (IB Gateway + price refresh).
 - Repo checkout: `/opt/server-logic-533`
 - Stable host scripts: `/opt/trading`
 
-## Container 200 (IB Gateway)
+## Container 200 (Sanji — price ingestion)
 - Hostname: fintech-533
 - Unprivileged LXC
 - Network: DHCP on vmbr0
 - Rootfs: 16G on local-lvm
+
+## Container 201 (Robin — market database)
+- Postgres database name: `robin`
+- Schema record: [`robin/schema.sql`](robin/schema.sql)
+- Apply that file once, on Luffy, after it has been pulled to `/opt/server-logic-533`:
+  `/opt/trading/apply_robin_schema.sh`
+- Deploy does not apply it
+- `student_ro` — SELECT only, for student sites
+- `robin_writer` — SELECT, INSERT, UPDATE, for Sanji. Password is set by the apply script and is not stored in git
 
 ## Paths inside CT 200
 

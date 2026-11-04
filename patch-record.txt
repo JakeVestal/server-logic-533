@@ -21,3 +21,4 @@
 533serverlogic-024-remove-repo.patch
 533serverlogic-026-rename-refresh-to-update-price-history.patch
 533serverlogic-027-market-open-check.patch
+533serverlogic-028-robin-schema.patch
