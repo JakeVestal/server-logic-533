@@ -19,3 +19,4 @@
 533serverlogic-020-seed-missing-price-history.patch
 533serverlogic-021-seed-name-and-summary.patch
 533serverlogic-024-remove-repo.patch
+533serverlogic-026-rename-refresh-to-update-price-history.patch

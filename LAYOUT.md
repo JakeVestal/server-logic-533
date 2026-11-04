@@ -37,8 +37,8 @@ IB Controller installation (IBC). Key files:
 ## Important scripts
 
 ### Host
-- Entry point (stable cron path): `/opt/trading/refresh_prices.sh`
-  Source: `host_files/refresh_prices.sh` in this repo
+- Entry point (stable cron path): `/opt/trading/update_price_history.sh`
+  Source: `host_files/update_price_history.sh` in this repo
 - Deploy script: `host_files/deploy-server-logic.sh`
   (run by the GitHub Actions workflow after it updates the checkout)
 
@@ -48,7 +48,7 @@ IB Controller installation (IBC). Key files:
 ## How to run
 On the Proxmox host:
 ```bash
-/opt/trading/refresh_prices.sh
+/opt/trading/update_price_history.sh
 ```
 
 ## Deploy flow
@@ -57,9 +57,9 @@ On the Proxmox host:
 3. Workflow does `git fetch` + `git reset --hard origin/main` in `/opt/server-logic-533`
 4. Workflow runs `./host_files/deploy-server-logic.sh`
 5. Deploy script:
-   - installs `host_files/refresh_prices.sh` → `/opt/trading/refresh_prices.sh`
+   - installs `host_files/update_price_history.sh` → `/opt/trading/update_price_history.sh`
    - tars `server_files/` into CT 200 `/opt/trading/`
 
 ## Notes
 - Gateway API listens on port 4002 (paper) when running
-- `refresh_prices.sh` starts Xvfb + IBC, waits for 4002, runs the updater, then stops the Gateway
+- `update_price_history.sh` starts Xvfb + IBC, waits for 4002, runs the updater, then stops the Gateway
