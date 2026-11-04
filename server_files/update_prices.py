@@ -321,7 +321,8 @@ def main():
                         start = datetime.now() - timedelta(days=30)
 
                     end = datetime.now()
-                    if start.date() >= end.date():
+                    # Skip only when the next missing session is still in the future.
+                    if start.date() > end.date():
                         print(f"  {conid}: up to date")
                     else:
                         bars = ib.reqHistoricalData(
