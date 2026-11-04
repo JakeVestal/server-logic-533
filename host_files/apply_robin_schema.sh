@@ -26,9 +26,19 @@ if ! pct status "$CTID" 2>/dev/null | grep -q running; then
   exit 1
 fi
 
-existing=$(pct exec "$CTID" -- su - postgres -c \
-  "psql -d robin -tAc \"SELECT CASE WHEN to_regclass('public.price_bars') IS NULL THEN '-1' ELSE (SELECT count(*)::text FROM price_bars) END\"")
-existing=$(printf '%s' "$existing" | tr -d '[:space:]')
+# Postgres plans every table named in a query before it runs the CASE,
+# so "count(*) FROM price_bars" errors when the table was never created
+# (the first apply dropped it, then failed). Ask whether it exists first.
+reg=$(pct exec "$CTID" -- su - postgres -c \
+  "psql -d robin -tAc \"SELECT to_regclass('public.price_bars')\"")
+reg=$(printf '%s' "$reg" | tr -d '[:space:]')
+if [[ -z "$reg" ]]; then
+  existing=-1
+else
+  existing=$(pct exec "$CTID" -- su - postgres -c \
+    "psql -d robin -tAc \"SELECT count(*) FROM price_bars\"")
+  existing=$(printf '%s' "$existing" | tr -d '[:space:]')
+fi
 
 if [[ "$existing" != "-1" && "$existing" != "0" && "$FORCE" -ne 1 ]]; then
   echo "public.price_bars has ${existing} rows. Refusing to drop them." >&2

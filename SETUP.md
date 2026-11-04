@@ -6,7 +6,7 @@ If the server is wiped, follow this to recreate what we built.
 ## Overview
 
 - **Host**: Proxmox (hostname `luffy`)
-- **Container**: LXC CT 200 (`fintech-533`) — unprivileged, runs IB Gateway via IBC
+- **Container**: LXC CT 200 (`sanji`) — unprivileged, runs IB Gateway via IBC
 - **Repo**: `https://github.com/JakeVestal/server-logic-533` checked out at `/opt/server-logic-533`
 - **Deploy**: GitHub Actions SSHs to the host on push to `main` (paths `server_files/**` or `host_files/**`)
 - **Entry point**: `/opt/trading/refresh_prices.sh` on the host
@@ -23,7 +23,7 @@ If the server is wiped, follow this to recreate what we built.
 
 ```bash
 pct create 200 local:vztmpl/debian-13-standard_*.tar.zst \
-  --hostname fintech-533 \
+  --hostname sanji \
   --rootfs local-lvm:16 \
   --net0 name=eth0,bridge=vmbr0,ip=dhcp \
   --unprivileged 1 \

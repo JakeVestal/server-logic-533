@@ -8,7 +8,7 @@ Snapshot of key paths for the 533 trading system (IB Gateway + price refresh).
 - Stable host scripts: `/opt/trading`
 
 ## Container 200 (Sanji — price ingestion)
-- Hostname: fintech-533
+- Hostname: sanji
 - Unprivileged LXC
 - Network: DHCP on vmbr0
 - Rootfs: 16G on local-lvm
