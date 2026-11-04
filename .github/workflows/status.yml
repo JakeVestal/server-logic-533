@@ -1,0 +1,65 @@
+name: Luffy status
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_run:
+    workflows: ["Deploy to Luffy"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Join Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Ask Luffy
+        id: probe
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOMELAB_HOST }}
+          username: root
+          key: ${{ secrets.HOMELAB_SSH_KEY }}
+          capture_stdout: true
+          script: |
+            bash /opt/server-logic-533/host_files/dashboard_status.sh
+
+      - name: Write status.json
+        env:
+          PROBE: ${{ steps.probe.outputs.stdout }}
+        run: |
+          python3 - << 'PY'
+          import json, os, pathlib, re, sys
+          text = os.environ.get("PROBE", "")
+          m = re.search(
+              r"===DASHBOARD_JSON_START===\n(.*)\n===DASHBOARD_JSON_END===",
+              text,
+              re.S,
+          )
+          if not m:
+              sys.stderr.write(text[-2000:])
+              sys.exit("probe did not return dashboard JSON")
+          data = json.loads(m.group(1))
+          path = pathlib.Path("docs/status.json")
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
+
+      - name: Commit status
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/status.json
+          git diff --cached --quiet && echo "status unchanged" && exit 0
+          git commit -m "Update dashboard status"
+          git push

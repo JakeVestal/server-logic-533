@@ -2,13 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Duke 533 — Telling Sanji What to Trade</title>
+  <title>Duke 533 — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      margin: 0;
-      background-color: #050b1c;
-    }
+    body { margin: 0; background-color: #050b1c; }
     .page {
       background-color: #050b1c;
       color: #e8eefc;
@@ -44,462 +41,88 @@
       font-family: Consolas, "Cascadia Code", "Courier New", monospace;
       font-size: 12.5px;
       color: #8aa0c4;
+      display: flex;
+      gap: 16px;
+      align-items: center;
     }
-    .meta b { color: #7cff55; font-weight: 500; }
-    .body { padding: 8px 28px 28px 28px; }
-    h2 {
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 20px;
-      font-weight: 500;
-      color: #d4a017;
-      margin: 22px 0 8px 0;
+    .badge {
+      padding: 2px 8px;
+      border: 1px solid #1a3a66;
     }
+    .badge.ok { color: #7cff55; border-color: #1d6b32; }
+    .badge.stale { color: #e8a317; border-color: #8a6a12; }
+    .badge.bad { color: #ff6b6b; border-color: #8a2a2a; }
+    .badge.idle { color: #8aa0c4; }
+    .body { padding: 18px 28px 28px; }
     p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
-    code, pre {
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-    }
     code {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
       color: #7cff55;
       font-size: 0.92em;
     }
-    pre {
-      background-color: #061433;
-      border: 1px solid #1a3a66;
-      color: #e8eefc;
-      font-size: 13px;
-      line-height: 1.45;
-      padding: 14px 16px;
-      margin: 0 0 12px 0;
-      overflow-x: auto;
-    }
-    pre code { color: inherit; font-size: inherit; }
     a { color: #3ecbff; text-decoration: none; }
-    table { width: 100%; border-collapse: collapse; margin: 0 0 12px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 0 0 14px 0; }
+    th {
+      text-align: left;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #d4a017;
+      padding: 8px 12px 8px 0;
+      border-bottom: 1px solid #d4a017;
+    }
     td {
-      vertical-align: top;
       padding: 10px 12px 10px 0;
-      color: #e8eefc;
       border-bottom: 1px solid #1a2a4a;
       font-size: 15px;
+      color: #e8eefc;
     }
-    td.k {
-      width: 148px;
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      color: #3ecbff;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-    td.c { color: #8aa0c4; width: 34%; }
-    details {
-      background-color: #0a1633;
-      margin: 8px 0;
-      border: 1px solid #1a3a66;
-    }
-    summary {
-      cursor: pointer;
-      padding: 11px 14px;
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 13px;
-      color: #7cff55;
-    }
-    details .in { padding: 0 16px 12px 16px; }
+    td.empty { color: #8aa0c4; }
     .note {
       border-left: 3px solid #d4a017;
       padding: 10px 14px;
       background-color: #120e06;
       color: #f0e2b8;
       font-size: 14.5px;
-      margin: 0 0 12px 0;
-    }
-    .ok {
-      padding: 11px 14px;
-      margin: 0 0 12px 0;
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      font-size: 13px;
-      background-color: #071a14;
-      color: #7cff55;
-      border: 1px solid #2f8a4a;
-    }
-    .end {
-      margin-top: 28px;
-      text-align: center;
-      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
-      color: #8aa0c4;
-      font-size: 11px;
+      margin: 0;
     }
   </style>
 </head>
 <body>
 <div class="page">
-  <div class="hero">
-    <div class="eyebrow">Duke // 533 // Orders &nbsp;&nbsp;|&nbsp;&nbsp; SANJI</div>
-    <h1>Telling Sanji What to Trade <span>FINTECH 533</span></h1>
-  </div>
+  <header class="hero">
+    <p class="eyebrow">server-logic-533</p>
+    <h1>Luffy <span>dashboard</span></h1>
+  </header>
   <div class="meta">
-    <b>DRAFT</b> &nbsp;&nbsp;|&nbsp;&nbsp; the file is the order &nbsp;&nbsp;|&nbsp;&nbsp; Sanji does not fill these yet
+    <span id="badge" class="badge idle">checking…</span>
+    <span id="asof"></span>
   </div>
   <div class="body">
-
-    <h2>01 // What you are writing</h2>
     <p>
-      Your nightly script does not talk to a broker. It writes
-      <code>mkt/open_orders.json</code>. Sanji reads that file after the
-      session, looks up the prices he stored, and decides what filled.
-      The JSON is the order.
-    </p>
-    <p>
-      Sanji is the program that fetches prices and resolves orders. He runs
-      on Luffy, the course machine. The prices he used are kept in Robin,
-      the course database. You do not write to Robin, and you do not edit
-      your positions file. You read positions and you write orders.
-    </p>
-    <div class="note">
-      Sanji does not resolve these orders yet. Write them in this shape now,
-      so the file is already right when he does.
-    </div>
-
-    <h2>02 // Two files</h2>
-    <p>
-      Both live in your repo under <code>mkt/</code>.
+      Subscribed repos on Sanji, CT 200. The user column is the GitHub
+      owner parsed from the repo URL. Last update is the last time this
+      system pushed <code>price_history.json</code>, not the last time
+      the student committed.
     </p>
     <table>
-      <tr>
-        <td class="k">positions.json</td>
-        <td>Sanji writes this. It is the book as of the end of the most recent session. Your script reads it. Your script does not change it.</td>
-      </tr>
-      <tr>
-        <td class="k">open_orders.json</td>
-        <td>You write this. It is a JSON array of orders for a coming session. One object per order. An empty book of orders is <code>[]</code>.</td>
-      </tr>
+      <thead>
+        <tr><th>GitHub user</th><th>Repository</th><th>Last update by us</th></tr>
+      </thead>
+      <tbody id="rows">
+        <tr><td colspan="3" class="empty">Loading…</td></tr>
+      </tbody>
     </table>
-    <p>
-      A session is one trading day. The date on the order is that day, written
-      <code>YYYY-MM-DD</code>.
+    <p class="note">
+      This page does not SSH. A workflow on a 15-minute schedule SSHs
+      to Luffy, reads the repo list there, and writes
+      <code>status.json</code>. Tokens stay on CT 200. If the badge is
+      green, that probe reached the host. Run it by hand from
+      <a href="https://github.com/JakeVestal/server-logic-533/actions/workflows/status.yml">Luffy status</a>.
     </p>
-
-    <h2>03 // When your script runs</h2>
-    <p>
-      The market is closed. You can see yesterday's book and yesterday's
-      prices. You cannot see the open you are about to trade against.
-      That is the point of the strike and price language below: you name
-      the contract relative to a print that has not happened yet.
-    </p>
-    <p>
-      Sanji resolves session S, and updates <code>positions.json</code> to
-      the close of S, before your script plans session S+1. If you run
-      first, you are planning off a stale book.
-    </p>
-
-    <h2>04 // One order</h2>
-    <p>
-      An unknown field, an unknown token, a missing required field, or a
-      quantity below 1 is <code>rejected</code>. Sanji does not guess.
-    </p>
-    <table>
-      <tr>
-        <td class="k">id</td>
-        <td class="c">string, required</td>
-        <td>Yours. Unique in the repo. Sanji fills an id once. A second run the same night does not fill it again.</td>
-      </tr>
-      <tr>
-        <td class="k">for</td>
-        <td class="c"><code>YYYY-MM-DD</code></td>
-        <td>The session the order belongs to. Not <code>"next"</code>. A late run must not fill Monday's order on Tuesday.</td>
-      </tr>
-      <tr>
-        <td class="k">order_type</td>
-        <td class="c"><code>mkt</code> or <code>lmt</code></td>
-        <td>Market, or limit. A market order fills at the open of the resolved contract. A limit order needs <code>lmt_prc</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">action</td>
-        <td class="c"><code>BUY</code> <code>SEL</code> <code>SHT</code> <code>BTC</code></td>
-        <td>Buy to open, sell to close, sell to open, buy to close. Quantity is always a positive integer. One order cannot flip a long into a short.</td>
-      </tr>
-      <tr>
-        <td class="k">qty</td>
-        <td class="c">integer ≥ 1</td>
-        <td>Option contracts, or shares when <code>contract</code> is <code>underlying</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">underlying</td>
-        <td class="c">conid</td>
-        <td>Interactive Brokers' integer id for the stock. Not a ticker. Copy it from <code>price_history.json</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">contract</td>
-        <td class="c"><code>put</code> <code>call</code> <code>underlying</code></td>
-        <td>Required. Blank is rejected.</td>
-      </tr>
-      <tr>
-        <td class="k">expiry</td>
-        <td class="c">token, below</td>
-        <td>Required for a put or a call. Omit it for the underlying.</td>
-      </tr>
-      <tr>
-        <td class="k">strike</td>
-        <td class="c">token, below</td>
-        <td>Required for a put or a call. Omit it for the underlying.</td>
-      </tr>
-      <tr>
-        <td class="k">ref</td>
-        <td class="c"><code>open</code> or <code>prev_close</code></td>
-        <td>Which print the strike tokens use. Default is <code>open</code>. This is the slot a clock time will occupy later.</td>
-      </tr>
-      <tr>
-        <td class="k">lmt_prc</td>
-        <td class="c">token, below</td>
-        <td>Required when <code>order_type</code> is <code>lmt</code>. Forbidden when it is <code>mkt</code>.</td>
-      </tr>
-    </table>
-
-    <h2>05 // A wheel, written as an order</h2>
-    <p>
-      The book is only cash. A wheel writes a near-the-money put. "Write"
-      is <code>SHT</code>, sell to open. The strike is not a number yet,
-      because it depends on tomorrow's open. One strike out of the money,
-      at the midpoint of that put's bid and ask, is a limit order. It is
-      not a market order.
-    </p>
-<pre><code>[
-  {
-    "id": "tsla-csp-2026-11-05",
-    "for": "2026-11-05",
-    "order_type": "lmt",
-    "action": "SHT",
-    "qty": 1,
-    "underlying": 76792991,
-    "contract": "put",
-    "expiry": "5DTE+",
-    "strike": "otm:1",
-    "ref": "open",
-    "lmt_prc": "mid"
-  }
-]</code></pre>
-    <p>
-      <code>76792991</code> is Tesla. Take the conid from your own
-      <code>price_history.json</code> rather than typing a ticker.
-      <code>5DTE+</code> is the listed expiry nearest to five calendar
-      days out, on or after that fifth day. <code>otm:1</code> is one
-      listed strike below the strike closest to the open. <code>mid</code>
-      is the midpoint of that put at the open.
-    </p>
-    <p>
-      The same contract as a market order drops <code>lmt_prc</code> and
-      sets <code>order_type</code> to <code>mkt</code>. Sanji fills it at
-      the put's open. A 30-delta version changes only the strike, to
-      <code>delta:30</code>. Thirty means absolute delta 0.30. You do not
-      write the minus sign.
-    </p>
-    <p>Buying the shares outright, if that is what the book calls for:</p>
-<pre><code>{
-  "id": "tsla-shares-2026-11-05",
-  "for": "2026-11-05",
-  "order_type": "mkt",
-  "action": "BUY",
-  "qty": 100,
-  "underlying": 76792991,
-  "contract": "underlying",
-  "ref": "open"
-}</code></pre>
-
-    <h2>06 // Actions</h2>
-    <table>
-      <tr>
-        <td class="k">BUY</td>
-        <td>Open or add to a long. Shares, or a put or call you are buying.</td>
-      </tr>
-      <tr>
-        <td class="k">SEL</td>
-        <td>Close or reduce a long. Selling shares you were assigned is <code>SEL</code>. Selling a put you own is <code>SEL</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">SHT</td>
-        <td>Open or add to a short. Writing a put or a covered call is <code>SHT</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">BTC</td>
-        <td>Close or reduce a short. Buying the put back is <code>BTC</code>.</td>
-      </tr>
-    </table>
-    <p>
-      <code>SEL</code> with no long to sell is <code>rejected</code>.
-      <code>BTC</code> with no short to cover is <code>rejected</code>.
-      Sanji does not check buying power. A cash-secured put larger than
-      the cash still fills. That mistake is yours.
-    </p>
-
-    <h2>07 // Expiry</h2>
-    <p>
-      Days are calendar days, counted from <code>for</code>, not from the
-      night you wrote the file. Sunday night, ordering for Monday, five
-      days is counted from Monday.
-    </p>
-    <table>
-      <tr>
-        <td class="k">5DTE+</td>
-        <td>Listed expiry nearest to 5 days out, with at least 5 days left.</td>
-      </tr>
-      <tr>
-        <td class="k">5DTE-</td>
-        <td>Nearest listed expiry with 5 days or fewer.</td>
-      </tr>
-      <tr>
-        <td class="k">5DTE</td>
-        <td>That calendar date only. No listed expiry that day means no fill.</td>
-      </tr>
-      <tr>
-        <td class="k">2026-11-20</td>
-        <td>That listed date.</td>
-      </tr>
-      <tr>
-        <td class="k">W+</td>
-        <td>Next weekly.</td>
-      </tr>
-      <tr>
-        <td class="k">M+</td>
-        <td>Next monthly. The third Friday.</td>
-      </tr>
-    </table>
-
-    <h2>08 // Strike</h2>
-    <p>
-      Anything that is not already a number snaps to a listed strike.
-      ATM is the listed strike closest to <code>ref</code>. A tie goes to
-      the lower strike. <code>otm</code> and <code>itm</code> count steps
-      from that ATM. A put's out-of-the-money direction is down. A call's
-      is up.
-    </p>
-    <table>
-      <tr>
-        <td class="k">250</td>
-        <td>That strike. No chain needed to know which contract you mean.</td>
-      </tr>
-      <tr>
-        <td class="k">atm</td>
-        <td>Closest listed strike to <code>ref</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">otm:1</td>
-        <td>One listed strike out of the money from ATM. <code>itm:1</code> is one strike in.</td>
-      </tr>
-      <tr>
-        <td class="k">pct:-5</td>
-        <td><code>ref</code> times 0.95, then the nearest listed strike. A tie goes further out of the money.</td>
-      </tr>
-      <tr>
-        <td class="k">delta:30</td>
-        <td>Nearest listed strike to absolute delta 0.30. A tie goes further out of the money.</td>
-      </tr>
-      <tr>
-        <td class="k">premium:2</td>
-        <td>Nearest strike whose midpoint is $2. Same tie rule.</td>
-      </tr>
-      <tr>
-        <td class="k">vega:0.15</td>
-        <td>Reserved. Same field, not a new one. Rejected until it is turned on.</td>
-      </tr>
-    </table>
-    <p>
-      A bare number needs no option chain. <code>otm</code>, <code>itm</code>,
-      <code>atm</code>, <code>pct</code>, <code>W+</code>, and the
-      <code>DTE</code> forms need the list of strikes and expiries.
-      <code>delta</code>, <code>premium</code>, and <code>vega</code> need
-      a chain snapshot taken at <code>ref</code>. Until Robin has that
-      snapshot, Sanji rejects those tokens. He will not invent a delta
-      from the stock's bar.
-    </p>
-
-    <h2>09 // Limit price</h2>
-    <table>
-      <tr>
-        <td class="k">3.50</td>
-        <td>That premium. For the underlying, that share price.</td>
-      </tr>
-      <tr>
-        <td class="k">mid</td>
-        <td>Midpoint of the resolved contract at <code>ref</code>. <code>bid</code> and <code>ask</code> are the quote itself.</td>
-      </tr>
-      <tr>
-        <td class="k">mid-0.05</td>
-        <td>That quote, plus a dollar offset. <code>bid+0.10</code> and <code>ask-0.05</code> are the same idea.</td>
-      </tr>
-    </table>
-    <p>
-      <code>mid</code>, <code>bid</code>, and <code>ask</code> need the
-      quote at <code>ref</code>. A numeric limit does not.
-    </p>
-
-    <h2>10 // What Sanji does with the file</h2>
-    <p>
-      Once the session's prices are in Robin, Sanji takes every order
-      whose <code>for</code> is that session and whose <code>id</code> is
-      not already filled.
-    </p>
-    <table>
-      <tr>
-        <td class="k">1</td>
-        <td>Resolve the expiry, then the strike. If the print or the chain he needs is missing, the order is <code>unresolved</code>. It is not tried again on a later day.</td>
-      </tr>
-      <tr>
-        <td class="k">2</td>
-        <td>A market order fills at the resolved contract's open.</td>
-      </tr>
-      <tr>
-        <td class="k">3</td>
-        <td>A limit buy or cover fills at the open if the open is already through the limit, otherwise at the limit if the day's low trades through it. A limit sell or short is the mirror image, using the high. If the bar never trades through, the order is <code>unfilled</code>.</td>
-      </tr>
-      <tr>
-        <td class="k">4</td>
-        <td>Fills are all or nothing. There are no partials.</td>
-      </tr>
-    </table>
-    <p>
-      He appends the result to <code>mkt/fills.json</code> and rewrites
-      <code>positions.json</code> so that it is the book at the end of
-      that session. You may leave old orders in <code>open_orders.json</code>.
-      An id already in the fills file will not fill again.
-    </p>
-    <div class="ok">filled &nbsp; unfilled &nbsp; unresolved &nbsp; rejected</div>
-    <p>
-      <code>filled</code> and <code>unfilled</code> are outcomes of a
-      contract he could name. <code>unresolved</code> means he could not
-      name the contract from the data he had. <code>rejected</code> means
-      the order itself was not legal.
-    </p>
-
-    <h2>11 // The book after the close</h2>
-    <p>
-      Assignment is not an order you write. After fills, Sanji applies it
-      from the underlying close. A short put with the close below the
-      strike becomes long 100 shares per contract, and the put is gone.
-      A short call with the close above the strike is gone, and if you
-      are long the shares, those shares are called away. Cash moves by
-      the strike times the multiplier.
-    </p>
-    <p>
-      Without that, a wheel that was short a put cannot wake up long the
-      stock and write the call. You still do not edit
-      <code>positions.json</code>. You read the book Sanji wrote and, if
-      the book is now long shares, your next order is the covered call.
-    </p>
-
-    <h2>12 // Not in this version</h2>
-    <p>
-      Multi-leg tickets, partial fills, stop orders, and any reference
-      time other than <code>prev_close</code> and <code>open</code>.
-      A spread, when it comes, will be several of these orders sharing
-      an id, not a new shape.
-    </p>
-    <p>
-      <code>vega</code> is already a legal-looking strike token so that
-      the field does not have to change. Sanji rejects it until it is
-      defined. Do not invent tokens. An unrecognized token is
-      <code>rejected</code>, not a quiet no-op.
-    </p>
-
-    <div class="end">&mdash; END &mdash;</div>
   </div>
 </div>
+<script src="site.js"></script>
+<script src="dashboard.js"></script>
 </body>
 </html>
