@@ -1,5 +1,5 @@
 {
-  "probed_at": "2026-11-05T13:37:27Z",
+  "probed_at": "2026-11-05T13:41:25Z",
   "ok": true,
   "host": "luffy",
   "repos": [
@@ -63,8 +63,8 @@
       "username": "davidp0717",
       "repo": "fintech535",
       "url": "https://github.com/davidp0717/fintech535",
-      "last_push": null,
-      "connected": false
+      "last_push": "2026-11-05T13:40:46Z",
+      "connected": true
     },
     {
       "username": "benedictzhang-crypto",
