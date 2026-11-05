@@ -76,7 +76,7 @@ chmod 600 /opt/trading/status_dispatch.token
 
 ## Operator commands
 
-Run these on Luffy as root. Deploy installs them to `/opt/trading`. The copies in `host_files/` are the source. `student_repos.json` stays mode 600 inside CT 200. None of these scripts print a full token. `view_repos.sh` and `update_pat.sh` print a mask: the first 7 characters, then `...`, then the last 4.
+Run these on Luffy as root. Deploy installs them to `/opt/trading`. The copies in `host_files/` are the source. `student_repos.json` stays mode 600 inside CT 200. None of these scripts print a usable token.
 
 | Command | What it does |
 |---|---|
