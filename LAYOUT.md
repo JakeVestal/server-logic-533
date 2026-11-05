@@ -58,7 +58,7 @@ Gateway settings, `Jts/`, and IBC logs. The user is `ibgateway`.
 | `host_files/publish_status.sh` | Asks GitHub to run the Luffy status workflow. |
 | `host_files/dashboard_status.sh` | Builds the dashboard JSON. Run on Luffy by that workflow. |
 | `host_files/add_repo.sh` | Add one student repo and PAT. |
-| `host_files/update_pat.sh` | Replace one student PAT. |
+| `host_files/update_pat.sh` | Replace one student PAT, then print it masked. |
 | `host_files/view_repos.sh` | List subscribed URLs with tokens masked. |
 | `host_files/remove_repo.sh` | Remove one URL. |
 | `host_files/delete_repo.sh` | Remove every URL containing a search string. |
