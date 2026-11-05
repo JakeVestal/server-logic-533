@@ -24,6 +24,106 @@ IB_HOST = "127.0.0.1"
 IB_PORT = 4002
 IB_CLIENT_ID = 2  # different from course job clientId=1
 
+import subprocess
+import time
+import socket
+
+
+def _gateway_listening() -> bool:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1)
+    try:
+        s.connect(("127.0.0.1", IB_PORT))
+        return True
+    except OSError:
+        return False
+    finally:
+        s.close()
+
+
+def _run(cmd, check=True):
+    print(f"  $ {' '.join(cmd)}")
+    return subprocess.run(cmd, check=check, capture_output=True, text=True)
+
+
+def gateway_start() -> None:
+    """Start IB Gateway via IBC if it is not already listening. Blocks until ready."""
+    if _gateway_listening():
+        print("IB Gateway already listening on 4002; reusing.")
+        return
+
+    print("Starting IB Gateway session...")
+    for pat in ["ibcalpha.ibc.IbcGateway", "install4j.ibgateway.GWClient", "Xvfb :99"]:
+        _run(["pkill", "-f", pat], check=False)
+    time.sleep(1)
+
+    # Ensure ExistingSessionDetectedAction=primary
+    subprocess.run([
+        "python3", "-c",
+        "from pathlib import Path\n"
+        "p = Path('/opt/ibc/config.ini')\n"
+        "if p.is_file():\n"
+        "    lines = p.read_text().splitlines()\n"
+        "    out = []\n"
+        "    found = False\n"
+        "    for line in lines:\n"
+        "        if line.split('=', 1)[0].strip() == 'ExistingSessionDetectedAction':\n"
+        "            out.append('ExistingSessionDetectedAction=primary')\n"
+        "            found = True\n"
+        "        else:\n"
+        "            out.append(line)\n"
+        "    if not found:\n"
+        "        out.append('ExistingSessionDetectedAction=primary')\n"
+        "    p.write_text('\\n'.join(out) + '\\n')\n"
+    ], check=False)
+
+    start_script = (
+        "nohup Xvfb :99 -screen 0 1024x768x24 >/tmp/xvfb.log 2>&1 &\n"
+        "for i in $(seq 1 10); do\n"
+        "  if pgrep -f 'Xvfb :99' >/dev/null; then break; fi\n"
+        "  sleep 0.5\n"
+        "done\n"
+        "if ! pgrep -f 'Xvfb :99' >/dev/null; then\n"
+        "  echo 'Xvfb failed' >> /tmp/ibg-start.log\n"
+        "  exit 1\n"
+        "fi\n"
+        "export DISPLAY=:99\n"
+        "nohup /opt/ibc/gatewaystart.sh -inline >/tmp/ibg-start.log 2>&1 &\n"
+    )
+    _run(["su", "-", "ibgateway", "-c", start_script])
+
+    print("Waiting for Gateway API on port 4002...")
+    for i in range(150):
+        if _gateway_listening():
+            print("Gateway port 4002 is open.")
+            break
+        if i % 10 == 0 and i > 0:
+            print(f"  ... still waiting ({i * 2}s)")
+        time.sleep(2)
+    else:
+        raise RuntimeError("IB Gateway did not become ready on port 4002")
+
+    print("Waiting 15s for paper-trading disclaimer to clear...")
+    time.sleep(15)
+    print("IB Gateway session ready.")
+
+
+def gateway_stop() -> None:
+    """Stop IB Gateway and sweep leftovers."""
+    print("Stopping IB Gateway session...")
+    for pat in ["ibcalpha.ibc.IbcGateway", "install4j.ibgateway.GWClient", "Xvfb :99"]:
+        _run(["pkill", "-f", pat], check=False)
+    time.sleep(2)
+    subprocess.run(
+        "pids=$(ps -eo pid,args --no-headers 2>/dev/null | "
+        "grep -E 'ibc|gateway|tws|java|Xvfb' | grep -v grep | awk '{print $1}'); "
+        'if [ -n "$pids" ]; then kill -9 $pids || true; fi',
+        shell=True,
+        check=False,
+    )
+    print("IB Gateway stopped.")
+
+
 
 def open_robin():
     password = open(ROBIN_PASSWORD_FILE).read().strip()
@@ -152,17 +252,21 @@ def resolve_equity(symbol: str) -> int:
     if not symbol:
         raise ValueError("symbol required")
 
-    details = fetch_ib_details(symbol)
-    conid = details["conid"]
+    gateway_start()
+    try:
+        details = fetch_ib_details(symbol)
+        conid = details["conid"]
 
-    with open_robin() as conn:
-        instrument_id = upsert_instrument(conn, symbol, details, conid)
+        with open_robin() as conn:
+            instrument_id = upsert_instrument(conn, symbol, details, conid)
 
-    print_card(symbol, details, conid, instrument_id)
-    if not confirm():
-        raise RuntimeError("User rejected the resolved instrument. Aborting.")
+        print_card(symbol, details, conid, instrument_id)
+        if not confirm():
+            raise RuntimeError("User rejected the resolved instrument. Aborting.")
 
-    return instrument_id
+        return instrument_id
+    finally:
+        gateway_stop()
 
 
 def main():
