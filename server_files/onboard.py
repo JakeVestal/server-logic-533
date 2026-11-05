@@ -109,18 +109,25 @@ def gateway_start() -> None:
 
 
 def gateway_stop() -> None:
-    """Stop IB Gateway and sweep leftovers."""
+    """Stop IB Gateway and sweep leftovers. Safe to call multiple times."""
     print("Stopping IB Gateway session...")
     for pat in ["ibcalpha.ibc.IbcGateway", "install4j.ibgateway.GWClient", "Xvfb :99"]:
-        _run(["pkill", "-f", pat], check=False)
-    time.sleep(2)
-    subprocess.run(
-        "pids=$(ps -eo pid,args --no-headers 2>/dev/null | "
-        "grep -E 'ibc|gateway|tws|java|Xvfb' | grep -v grep | awk '{print $1}'); "
-        'if [ -n "$pids" ]; then kill -9 $pids || true; fi',
-        shell=True,
-        check=False,
-    )
+        try:
+            _run(["pkill", "-f", pat], check=False)
+        except Exception as exc:
+            print(f"  (pkill {pat} warning: {exc})")
+    time.sleep(1)
+    try:
+        subprocess.run(
+            "pids=$(ps -eo pid,args --no-headers 2>/dev/null | "
+            "grep -E 'ibc|gateway|tws|java|Xvfb' | grep -v grep | awk '{print $1}'); "
+            'if [ -n "$pids" ]; then kill -9 $pids || true; fi',
+            shell=True,
+            check=False,
+            timeout=10,
+        )
+    except Exception as exc:
+        print(f"  (leftover sweep warning: {exc})")
     print("IB Gateway stopped.")
 
 
@@ -162,7 +169,7 @@ def fetch_ib_details(symbol: str) -> dict:
             "full_name": d.longName or None,
             "industry": d.industry or None,
             "sector": d.category or None,
-            "primary_exchange": d.primaryExchange or d.contract.primaryExchange or None,
+            "primary_exchange": d.contract.primaryExchange or None,
             "country": None,  # IB ContractDetails does not reliably supply country
         }
     finally:
