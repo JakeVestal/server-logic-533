@@ -2,7 +2,7 @@
 """
 Robin onboard entry point.
 
-resolve_equity(symbol) resolves a ticker against LSEG and IB, upserts the
+resolve_equity(symbol) resolves a ticker against IB Gateway, upserts the
 instrument and details, prints the card, and requires explicit confirmation
 before returning the instrument_id.
 
@@ -41,32 +41,30 @@ def open_robin():
     )
 
 
-def fetch_lseg_details(symbol: str) -> dict:
+def fetch_ib_details(symbol: str) -> dict:
     """
-    Placeholder for LSEG lookup.
-    Must return a dict with at least:
-      ric, short_name, full_name, industry, sector, primary_exchange, country
-    Nulls are allowed; never invent values.
-    Raise if the lookup cannot be performed.
+    Resolve symbol via IB Gateway (clientId 2).
+    Returns dict with: conid, short_name, full_name, industry, sector,
+    primary_exchange, country. Nulls stay null; never invent values.
     """
-    # TODO: wire real LSEG / lseg-data call here.
-    # Example fields previously agreed: TR.CommonName, TR.TRBCIndustry, etc.
-    raise NotImplementedError(
-        "LSEG lookup not yet wired. Implement fetch_lseg_details before use."
-    )
-
-
-def fetch_ib_conid(symbol: str) -> int:
-    """Resolve symbol to IB conid via Gateway. Uses clientId 2."""
     from ib_insync import IB, Stock
     ib = IB()
     try:
         ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
         contract = Stock(symbol, "SMART", "USD")
-        qualified = ib.qualifyContracts(contract)
-        if not qualified:
-            raise RuntimeError(f"IB could not qualify {symbol}")
-        return qualified[0].conId
+        details_list = ib.reqContractDetails(contract)
+        if not details_list:
+            raise RuntimeError(f"IB returned no ContractDetails for {symbol}")
+        d = details_list[0]
+        return {
+            "conid": d.contract.conId,
+            "short_name": d.longName or None,
+            "full_name": d.longName or None,
+            "industry": d.industry or None,
+            "sector": d.category or None,
+            "primary_exchange": d.primaryExchange or d.contract.primaryExchange or None,
+            "country": None,  # IB ContractDetails does not reliably supply country
+        }
     finally:
         ib.disconnect()
 
@@ -91,13 +89,7 @@ def upsert_instrument(conn, symbol: str, details: dict, conid: int) -> int:
             )
             instrument_id = cur.fetchone()[0]
 
-        # Vendor ids
-        if details.get("ric"):
-            cur.execute("""
-                INSERT INTO vendor_ids (instrument_id, vendor, vendor_id)
-                VALUES (%s, 'lseg', %s)
-                ON CONFLICT (vendor, vendor_id) DO NOTHING
-            """, (instrument_id, details["ric"]))
+        # Vendor id (IB only)
         cur.execute("""
             INSERT INTO vendor_ids (instrument_id, vendor, vendor_id)
             VALUES (%s, 'ib', %s)
@@ -136,7 +128,6 @@ def print_card(symbol: str, details: dict, conid: int, instrument_id: int):
     print(f"  symbol:            {symbol}")
     print(f"  instrument_id:     {instrument_id}")
     print(f"  IB conid:          {conid}")
-    print(f"  LSEG RIC:          {details.get('ric') or '(none)'}")
     print(f"  short_name:        {details.get('short_name') or '(none)'}")
     print(f"  full_name:         {details.get('full_name') or '(none)'}")
     print(f"  industry:          {details.get('industry') or '(none)'}")
@@ -161,8 +152,8 @@ def resolve_equity(symbol: str) -> int:
     if not symbol:
         raise ValueError("symbol required")
 
-    details = fetch_lseg_details(symbol)
-    conid = fetch_ib_conid(symbol)
+    details = fetch_ib_details(symbol)
+    conid = details["conid"]
 
     with open_robin() as conn:
         instrument_id = upsert_instrument(conn, symbol, details, conid)
