@@ -39,3 +39,4 @@
 533serverlogic-043-resolve-equity.patch
 533serverlogic-044-rename-right (1).patch
 533serverlogic-045-deploy-on-schema.patch
+533serverlogic-046-deploy-manual (3).patch
