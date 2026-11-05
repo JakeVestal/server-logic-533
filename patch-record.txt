@@ -46,3 +46,4 @@
 533serverlogic-050-fix-primaryexchange.patch
 533serverlogic-052-confirm-before-write.patch
 533serverlogic-053-sequence-grant.patch
+533serverlogic-054-existing-check.patch

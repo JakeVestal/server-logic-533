@@ -148,6 +148,26 @@ def open_robin():
     )
 
 
+def check_existing(symbol: str) -> tuple[int | None, int]:
+    """Return (instrument_id, daily_bar_count) if the equity already exists, else (None, 0)."""
+    with open_robin() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT instrument_id FROM instruments WHERE sec_type = 'STK' AND symbol = %s",
+                (symbol,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None, 0
+            instrument_id = row[0]
+            cur.execute(
+                "SELECT COUNT(*) FROM daily_bars WHERE instrument_id = %s",
+                (instrument_id,),
+            )
+            bar_count = cur.fetchone()[0]
+            return instrument_id, bar_count
+
+
 def fetch_ib_details(symbol: str) -> dict:
     """
     Resolve symbol via IB Gateway (clientId 2).
@@ -259,6 +279,15 @@ def resolve_equity(symbol: str) -> int:
     symbol = symbol.strip().upper()
     if not symbol:
         raise ValueError("symbol required")
+
+    # Check for existing instrument before starting Gateway or writing
+    instrument_id, bar_count = check_existing(symbol)
+    if instrument_id is not None:
+        print(f"{symbol} already exists (instrument_id={instrument_id}, {bar_count} daily bars).")
+        print("Proceeding will update the instrument details.")
+        answer = input("Continue? [y/N] ").strip().lower()
+        if answer not in ("y", "yes"):
+            raise RuntimeError(f"User declined to update existing {symbol}. Aborting.")
 
     gateway_start()
     try:
