@@ -1,78 +1,79 @@
-# Trading Stack Layout
+# Trading stack layout
 
-> Out of date. The recreation record is the setup page:
-> <https://jakevestal.github.io/server-logic-533/setup.html>
-> Do not treat the paths below as the current design unless that page agrees.
+Where things are. How to rebuild and how a market afternoon runs is [SETUP.md](SETUP.md) and [docs/setup.html](docs/setup.html). How a change gets into the repo is [PATCHES.txt](PATCHES.txt).
 
-Snapshot of key paths for the 533 trading system (IB Gateway + price refresh).
+## Host (Luffy)
 
-## Host (Proxmox)
-- Hostname: luffy
-- Repo checkout: `/opt/server-logic-533`
-- Stable host scripts: `/opt/trading`
+- Proxmox host. GitHub Actions reaches it over Tailscale, as root.
+- Repo checkout: `/opt/server-logic-533`. Actions resets this checkout to `origin/main` on deploy.
+- Stable host scripts, installed by deploy: `/opt/trading`
+- Dispatch token, not in git: `/opt/trading/status_dispatch.token` (mode 600)
+- Afternoon log: `/var/log/update-price-history.log`
+- Cron is not in git. The line is in SETUP.md.
 
-## Container 200 (Sanji — price ingestion)
-- Hostname: sanji
-- Unprivileged LXC
-- Network: DHCP on vmbr0
-- Rootfs: 16G on local-lvm
+## Container 200 (Sanji)
 
-## Container 201 (Robin — market database)
-- Postgres database name: `robin`
-- Schema record: [`robin/schema.sql`](robin/schema.sql)
-- Apply that file once, on Luffy, after it has been pulled to `/opt/server-logic-533`:
-  `/opt/trading/apply_robin_schema.sh`
-- Deploy does not apply it
-- `student_ro` — SELECT only, for student sites
-- `robin_writer` — SELECT, INSERT, UPDATE, for Sanji. Password is set by the apply script and is not stored in git
+- Unprivileged LXC, hostname `sanji`, on `vmbr0`. Nesting is on.
+- Runs the price program, IB Gateway through IBC, and Xvfb.
 
-## Paths inside CT 200
+### `/opt/trading` inside CT 200
 
-### `/opt/trading`
-```
-update_prices.py       # fetches history via IB API and pushes to GitHub
-subscribed_repos.txt   # list of repos to update
-github_token           # (secret, mode 600)
-venv/                  # Python virtualenv
-```
+| Path | What it is |
+|---|---|
+| `update_prices.py` | Deployed copy of `server_files/update_prices.py`. Daily bars, student repos, and the Robin upsert. |
+| `student_repos.json` | Live subscription list. Mode 600. Not in git. |
+| `robin_writer.password` | Password for the Robin writer. Mode 600. Not in git. |
+| `price_run.json` | Last run summary. Not published. |
+| `venv/` | Python virtualenv. Packages used by the job: `ib_insync`, `requests`, `psycopg[binary]`, `exchange_calendars`. |
+| `github_token` | Legacy single token. Used only if `student_repos.json` is missing. Not the live path. |
+| `subscribed_repos.txt` | Legacy repo list for that same fallback. A copy is in git at `server_files/subscribed_repos.txt`. |
 
 ### `/opt/ibc`
-IB Controller installation (IBC). Key files:
-- `gatewaystart.sh` — starts IB Gateway
-- `config.ini` — IBC configuration
-- `IBC.jar`
+
+IB Controller. `gatewaystart.sh` starts Gateway. The paper login and API settings are in the IBC config on this container. They are not in git. Gateway listens on port 4002 when it is running.
 
 ### `/home/ibgateway`
-- `Jts/` — Gateway settings / jts.ini / logs
-- `ibc/` — IBC runtime logs
-- User: `ibgateway`
 
-## Important scripts
+Gateway settings, `Jts/`, and IBC logs. The user is `ibgateway`.
 
-### Host
-- Entry point (stable cron path): `/opt/trading/update_price_history.sh`
-  Source: `host_files/update_price_history.sh` in this repo
-- Deploy script: `host_files/deploy-server-logic.sh`
-  (run by the GitHub Actions workflow after it updates the checkout)
+## Container 201 (Robin)
 
-### Container
-- Price updater: `/opt/trading/update_prices.py`
+- Postgres database `robin`.
+- Sanji connects with `ROBIN_HOST` and `ROBIN_PORT` in `server_files/update_prices.py`, user `robin_writer`.
+- `robin_writer` can SELECT, INSERT, and UPDATE.
+- `student_ro` can SELECT. It has no login password yet.
+- Schema record: `robin/schema.sql`. Apply once, by hand, with `/opt/trading/apply_robin_schema.sh`. Deploy does not apply it.
+- Tables today: `assets` (one IB contract, primary key `conid`) and `price_bars` (one OHLCV row per `conid`, `bar_size`, `bar_date`). `bar_size` is `1 day`. No IV or Greeks columns.
+- The apply script drops those two tables when they are empty, and refuses when `price_bars` has rows unless `--force` is passed.
 
-## How to run
-On the Proxmox host:
-```bash
-/opt/trading/update_price_history.sh
-```
+## Repo
 
-## Deploy flow
-1. Push to `main` that touches `server_files/**` or `host_files/**`
-2. GitHub Actions SSHs to the host
-3. Workflow does `git fetch` + `git reset --hard origin/main` in `/opt/server-logic-533`
-4. Workflow runs `./host_files/deploy-server-logic.sh`
-5. Deploy script:
-   - installs `host_files/update_price_history.sh` → `/opt/trading/update_price_history.sh`
-   - tars `server_files/` into CT 200 `/opt/trading/`
+| Path | What it is |
+|---|---|
+| `server_files/update_prices.py` | Price program. Deploy copies `server_files/` into CT 200 `/opt/trading/`. |
+| `server_files/subscribed_repos.txt` | Legacy fallback list. The live list is `student_repos.json` on CT 200. |
+| `host_files/update_price_history.sh` | Afternoon job. Installed to `/opt/trading/update_price_history.sh`. |
+| `host_files/deploy-server-logic.sh` | What the deploy workflow runs after it updates the checkout. |
+| `host_files/apply_robin_schema.sh` | Applies `robin/schema.sql`. |
+| `host_files/publish_status.sh` | Asks GitHub to run the Luffy status workflow. |
+| `host_files/dashboard_status.sh` | Builds the dashboard JSON. Run on Luffy by that workflow. |
+| `host_files/add_repo.sh` | Add one student repo and PAT. |
+| `host_files/update_pat.sh` | Replace one student PAT. |
+| `host_files/view_repos.sh` | List subscribed URLs with tokens masked. |
+| `host_files/remove_repo.sh` | Remove one URL. |
+| `host_files/delete_repo.sh` | Remove every URL containing a search string. |
+| `robin/schema.sql` | Database record. |
+| `docs/index.html` | Dashboard. |
+| `docs/order.html` | Student spec for `positions.json` and `open_orders.json`. Not executed yet. |
+| `docs/status.json` | Written by the Luffy status workflow. Do not edit it by hand. |
+| `docs/setup.html` | Same recreation record as SETUP.md. |
+| `docs/site.js` | Nav bar. |
+| `docs/.nojekyll` | Pages serves the files as they are. |
+| `.github/workflows/deploy.yml` | Deploy to Luffy. |
+| `.github/workflows/status.yml` | Luffy status. SSH action is `appleboy/ssh-action@v1.2.5`. |
+| `scripts/apply-latest-patch.sh` | Applies the next patch from `~/Downloads`. See PATCHES.txt. |
+| `patch-record.txt` | One applied patch filename per line. |
 
-## Notes
-- Gateway API listens on port 4002 (paper) when running
-- `update_price_history.sh` starts Xvfb + IBC, waits for 4002, runs the updater, then stops the Gateway
+## Not in git
+
+`student_repos.json`, `robin_writer.password`, `github_token`, `status_dispatch.token`, the venv, the IBC config, and the cron line.

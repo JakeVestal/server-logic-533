@@ -105,8 +105,9 @@
       This is the recreation record for the 533 trading system. If the host
       is lost, follow this page and the files in
       <a href="https://github.com/JakeVestal/server-logic-533">the repo</a>.
-      The root files <code>SETUP.md</code> and <code>LAYOUT.md</code> describe
-      an older layout. Do not follow them.
+      <code>SETUP.md</code> is this same record.
+      <code>LAYOUT.md</code> is the path list.
+      <code>PATCHES.txt</code> is how a change gets into the repo.
     </p>
     <p class="note">
       This page names paths and secret names. It does not contain tokens,
@@ -378,12 +379,13 @@ pct exec 200 -- chmod 600 /opt/trading/robin_writer.password</code></pre>
       <li>Unprivileged LXC with Postgres. Create a database named <code>robin</code>.</li>
       <li>Give CT 200 a route to CT 201's Postgres port. Put that address and port in <code>ROBIN_HOST</code> and <code>ROBIN_PORT</code> in <code>server_files/update_prices.py</code>, then deploy.</li>
       <li>From Luffy, after the repo is at <code>/opt/server-logic-533</code>, run <code>/opt/trading/apply_robin_schema.sh</code> once. It applies <code>robin/schema.sql</code> and prompts for the <code>robin_writer</code> password. Use the same password as the file on CT 200.</li>
-      <li><code>student_ro</code> can SELECT. <code>robin_writer</code> can SELECT, INSERT, and UPDATE. Neither password belongs in git. The schema drops <code>price_bars</code> and <code>assets</code>. The apply script refuses when <code>price_bars</code> has rows.</li>
+      <li><code>student_ro</code> can SELECT. <code>robin_writer</code> can SELECT, INSERT, and UPDATE. Neither password belongs in git. <code>student_ro</code> has no login password yet. The schema drops <code>price_bars</code> and <code>assets</code>. The apply script refuses when <code>price_bars</code> has rows.</li>
     </ol>
     <p>
       Tables: <code>assets</code> is one IB contract, keyed by conid.
       <code>price_bars</code> is one daily bar per contract and session date.
       Sanji writes <code>bar_size</code> as <code>1 day</code>.
+      There are no IV or Greeks columns.
     </p>
 
     <h2>What must not be published</h2>

@@ -1,46 +1,56 @@
-How code changes get into this repo.
+How a change gets into this repo.
 
-Read docs/setup.html for how Luffy, Sanji, and Robin actually run.
-SETUP.md and LAYOUT.md are an older layout. Do not follow them.
-This file is the rule for changing the repo. If a chat disagrees with it, this file wins until Jacob changes it.
+SETUP.md is how the system is built. LAYOUT.md is where the files are. docs/setup.html is the same recreation record as SETUP.md. This file is how a patch is cut and applied. When a change alters how the system runs, update all three records in that same change.
 
 Who commits
-- Jacob applies a patch and commits it. An assistant does not commit, push, or open a PR unless he explicitly says to commit.
-- A change that stays inside docs/ may be committed directly, and only when he asked for a documentation or dashboard change.
-- Anything outside docs/ is a patch, unless he explicitly asked for that commit. This file is outside docs/. It was added because he asked for the commit.
+
+- Jacob commits and pushes. An assistant does not commit, push, or open a PR unless he explicitly says to commit.
+- A change that stays inside docs/ may be committed directly when he asked for a documentation or dashboard change.
+- SETUP.md, LAYOUT.md, and this file are outside docs/. Changing them is a patch, unless he explicitly asked for that commit.
 
 Cutting a patch
+
 - One logical change per patch.
-- Name it 533serverlogic-NNN-kebab-slug.patch. No spaces, and no " (1)" suffix. Old rows in patch-record.txt have those. New patches do not.
-- NNN is the next free number. Read patch-record.txt on main and add one to the highest number there. Gaps are intentional. Do not fill them.
-- On 2026-11-05 the last line was 533serverlogic-039-setup-schedule.patch. There is no 040 on main. A chat draft named 533serverlogic-040-pat-readback.patch was never committed. If 039 is still the last line, the next patch is 040. Look first. Never reuse a number.
-- The patch is a unified diff against main, with repo-relative paths. git apply must accept it.
-- Do not put the .patch file in the repo. The handoff is the file itself. The repo only stores its name.
-- The diff also updates nothing by itself. Jacob appends the filename as the new last line of patch-record.txt in the same commit as the applied change.
-- Do not include a secret. That means the robin_writer password, IB login, student PATs, the status-dispatch token, Tailscale keys, and HOMELAB_SSH_KEY.
-- Do not add student_repos.json, robin_writer.password, github_token, or the venv to git. Deploy preserves the copies on CT 200 because they are not in server_files/.
+- Name it 533serverlogic-NNN-kebab-slug.patch. No spaces, and no " (1)" suffix. The apply script can see a browser's duplicate download, but the name you hand over should be the clean one.
+- NNN is one more than the highest number in patch-record.txt. Gaps are intentional. Do not fill them, and do not reuse a number. Read the file on main. Do not trust a number remembered from a chat.
+- Unified diff against main, repo-relative paths. git apply must accept it.
+- Put the file in ~/Downloads. Do not add the .patch file to the repo. The repo only stores its name, and the script writes that line.
+- No secrets in the diff. That means the robin_writer password, the IB login, student PATs, the status-dispatch token, Tailscale keys, and HOMELAB_SSH_KEY.
+- Do not add student_repos.json, robin_writer.password, github_token, status_dispatch.token, or the venv.
 
 Applying
-From a clean checkout of main, at the repo root:
 
-    git apply --check 533serverlogic-NNN-slug.patch
-    git apply 533serverlogic-NNN-slug.patch
+From a checkout of main, run scripts/apply-latest-patch.sh. In WebStorm that script is the external tool "Apply latest patch": program /bin/bash, arguments "$ProjectFileDir$/scripts/apply-latest-patch.sh", working directory $ProjectFileDir$.
 
-Then add the filename to the end of patch-record.txt, and commit. The commit message is the number alone, for example 040. Then push.
-If git apply --check fails, stop. Do not force it with a different path strip.
+The script:
+
+- Looks in ~/Downloads, or $DOWNLOADS if that is set, for 533serverlogic*.patch.
+- Applies the highest number that is not already a line in patch-record.txt.
+- Runs git apply --check, then git apply.
+- On success, appends that filename to patch-record.txt.
+- Deletes Downloads copies of that number and every lower number, including " (1)" duplicates and a .pach mistype.
+- Does not commit.
+- If the patch is only gitignored local files, it records the name, deletes the download, and does not change tracked files. The excludes in the script are site/scratch.html, site/scratch.js, and notes/.
+- On a real apply failure, it leaves Downloads alone.
+
+Then Jacob commits the applied files together with the updated patch-record.txt. The commit message is the number alone, for example 040. Then he pushes.
 
 What a push does
-- A push to main that touches server_files/ or host_files/ runs Deploy to Luffy. The workflow fetches, resets the checkout at /opt/server-logic-533 to origin/main, and runs host_files/deploy-server-logic.sh.
-- Deploy installs host scripts to /opt/trading, copies server_files/ into CT 200 /opt/trading/, and pip-installs psycopg[binary]. It does not apply SQL. It does not install the rest of the venv.
+
+- A push to main that touches server_files/ or host_files/ runs Deploy to Luffy. The workflow joins Tailscale, fetches, resets /opt/server-logic-533 to origin/main, and runs host_files/deploy-server-logic.sh.
+- Deploy installs the host scripts into /opt/trading, copies server_files/ into CT 200 /opt/trading/, and pip-installs psycopg[binary] into that venv. It does not install the other Python packages. It does not apply SQL. It does not delete student_repos.json, robin_writer.password, or the venv.
 - A push that does not touch those two directories does not deploy.
-- docs/setup.html is the recreation record. When a patch changes how the system runs, update that page in the same patch. Do not "fix" SETUP.md or LAYOUT.md instead.
+- Luffy status runs after a successful deploy, and also at the end of a price run that gets that far, and from the Actions button. It writes docs/status.json.
 
 Schema
-- robin/schema.sql is the database record. apply_robin_schema.sh is manual, on Luffy. It drops price_bars and assets when they are empty, and it refuses when price_bars has rows unless --force is passed.
-- Do not tell Jacob to re-run that script as part of an ordinary patch.
-- Once the tables hold data, a schema change is a forward migration, not another DROP TABLE at the top of schema.sql.
+
+- robin/schema.sql is the database record. apply_robin_schema.sh is manual, on Luffy.
+- It drops price_bars and assets when they are empty, and it refuses when price_bars has rows unless --force is passed.
+- Do not re-run that script as part of an ordinary patch.
+- Once the tables hold data, a schema change is a forward migration. Do not add another DROP TABLE to schema.sql.
 
 Leave the afternoon job alone
-- One cron line runs /opt/trading/update_price_history.sh on market afternoons. It is not in git. It starts the one IB Gateway session (paper, port 4002, client id 1) and takes that session.
-- update_prices.py writes student price_history.json files and upserts the same daily bars into Robin at 192.168.1.202:5432, database robin, user robin_writer.
+
+- One cron line runs /opt/trading/update_price_history.sh. It is not in git. It starts the one IB Gateway session (paper, port 4002, client id 1) and takes that session.
+- update_prices.py writes student price_history.json files and upserts the same daily bars into Robin. The host and port are ROBIN_HOST and ROBIN_PORT in server_files/update_prices.py.
 - A new collector has to share that Gateway. It must not start a second one while this job holds the session, and it must not replace the student-repo writer.
