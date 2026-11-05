@@ -2,7 +2,7 @@
 # Replace the PAT for one repo in CT 200 /opt/trading/student_repos.json.
 # Ask for a search string, make the operator pick one repo, then read the new PAT.
 # Unlike delete_repo.sh, a broad search never changes more than the one repo picked.
-# The token is not printed.
+# After the write, the token is read back from disk and printed masked.
 set -euo pipefail
 
 CTID=200
@@ -124,6 +124,28 @@ unset token
 
 pct exec "$CTID" -- chmod 600 "$FILE"
 echo "Permissions set to 600"
-echo "Token stored. Not printed."
+pct exec "$CTID" -- env REPO="$repo" python3 - << 'PY'
+import json, os, sys
+path = "/opt/trading/student_repos.json"
+repo = os.environ["REPO"].rstrip("/")
+with open(path) as f:
+    data = json.load(f)
+token = None
+for entry in data:
+    if not isinstance(entry, dict):
+        continue
+    current = (entry.get("repo") or "").rstrip("/")
+    if current == repo:
+        token = entry.get("token") or ""
+        break
+if token is None:
+    print("ERROR: repo not found when reading the token back.", file=sys.stderr)
+    sys.exit(1)
+if len(token) > 12:
+    masked = token[:7] + "..." + token[-4:]
+else:
+    masked = "***"
+print(f"Token on disk: {masked}")
+PY
 echo "The dashboard mark changes after the next status run:"
 echo "  /opt/trading/publish_status.sh"
