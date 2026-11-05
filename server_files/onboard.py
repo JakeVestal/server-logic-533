@@ -199,21 +199,41 @@ def fetch_ib_details(symbol: str) -> dict:
 def upsert_instrument(conn, symbol: str, details: dict, conid: int) -> int:
     """
     Write equity instrument, vendor_ids, and instrument_details.
-    For equities the unique constraint does not prevent duplicates (NULLs in the
-    option key columns). On a confirmed overwrite we delete every existing STK
-    row for this symbol first; ON DELETE CASCADE clears bars, vols, details, and
-    vendor_ids. Then we insert fresh.
+    On a confirmed overwrite we wipe all data for this underlying first:
+    admission_events, tracked_underlyings, option instruments (and their
+    cascading children), then the equity instruments (and their cascading
+    children). Then we insert a fresh equity row.
     Returns the new instrument_id.
     """
     with conn.cursor() as cur:
-        # Delete any prior equity rows for this symbol. Cascades clean children.
+        # Full wipe of this underlying: options, admission events, tracking, then the equity.
+        # underlying_id / tracked_underlyings / admission_events have no ON DELETE CASCADE,
+        # so they must be removed before the equity rows.
         cur.execute(
-            "DELETE FROM instruments WHERE sec_type = 'STK' AND symbol = %s",
+            "SELECT instrument_id FROM instruments WHERE sec_type = 'STK' AND symbol = %s",
             (symbol,),
         )
-        deleted = cur.rowcount
-        if deleted:
-            print(f"  {symbol}: removed {deleted} prior instrument row(s)")
+        equity_ids = [r[0] for r in cur.fetchall()]
+        if equity_ids:
+            cur.execute(
+                "DELETE FROM admission_events WHERE underlying_id = ANY(%s)",
+                (equity_ids,),
+            )
+            cur.execute(
+                "DELETE FROM tracked_underlyings WHERE instrument_id = ANY(%s)",
+                (equity_ids,),
+            )
+            cur.execute(
+                "DELETE FROM instruments WHERE underlying_id = ANY(%s)",
+                (equity_ids,),
+            )
+            opt_deleted = cur.rowcount
+            cur.execute(
+                "DELETE FROM instruments WHERE instrument_id = ANY(%s)",
+                (equity_ids,),
+            )
+            eq_deleted = cur.rowcount
+            print(f"  {symbol}: removed {eq_deleted} equity row(s) and {opt_deleted} option row(s)")
 
         # Fresh equity row
         cur.execute("""
@@ -412,7 +432,7 @@ def resolve_equity(symbol: str) -> int:
     instrument_id, bar_count = check_existing(symbol)
     if instrument_id is not None:
         print(f"{symbol} already exists (instrument_id={instrument_id}, {bar_count} daily bars).")
-        print("Proceeding will update instrument details and refresh 1 year of equity data.")
+        print(f"Proceeding will completely remove all equities and options data for the underlying symbol {symbol} and will completely replace it with a new data fetch.")
         answer = input("Continue? [y/N] ").strip().lower()
         if answer not in ("y", "yes"):
             raise RuntimeError(f"User declined to update existing {symbol}. Aborting.")

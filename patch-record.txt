@@ -49,3 +49,4 @@
 533serverlogic-054-existing-check.patch
 533serverlogic-056-equity-seed.patch
 533serverlogic-057-overwrite-no-fundamentals.patch
+533serverlogic-058-full-wipe-confirm.patch
