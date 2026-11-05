@@ -251,9 +251,10 @@ def confirm() -> bool:
 
 def resolve_equity(symbol: str) -> int:
     """
-    Resolve, upsert, print, and require confirmation.
+    Resolve, print card, require confirmation, then upsert.
     Returns instrument_id only after the user confirms.
     Raises on any failure or rejection.
+    Nothing is written to Robin before confirmation.
     """
     symbol = symbol.strip().upper()
     if not symbol:
@@ -264,13 +265,26 @@ def resolve_equity(symbol: str) -> int:
         details = fetch_ib_details(symbol)
         conid = details["conid"]
 
-        with open_robin() as conn:
-            instrument_id = upsert_instrument(conn, symbol, details, conid)
+        # Preview only — no instrument_id yet
+        print("\nResolved instrument (preview, not yet written):")
+        print(f"  symbol:            {symbol}")
+        print(f"  IB conid:          {conid}")
+        print(f"  short_name:        {details.get('short_name') or '(none)'}")
+        print(f"  full_name:         {details.get('full_name') or '(none)'}")
+        print(f"  industry:          {details.get('industry') or '(none)'}")
+        print(f"  sector:            {details.get('sector') or '(none)'}")
+        print(f"  primary_exchange:  {details.get('primary_exchange') or '(none)'}")
+        print(f"  country:           {details.get('country') or '(none)'}")
+        print()
 
-        print_card(symbol, details, conid, instrument_id)
         if not confirm():
             raise RuntimeError("User rejected the resolved instrument. Aborting.")
 
+        # Write only after explicit confirmation
+        with open_robin() as conn:
+            instrument_id = upsert_instrument(conn, symbol, details, conid)
+
+        print(f"Confirmed and written. instrument_id = {instrument_id}")
         return instrument_id
     finally:
         gateway_stop()
