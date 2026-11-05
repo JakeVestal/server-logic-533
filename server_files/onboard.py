@@ -197,24 +197,31 @@ def fetch_ib_details(symbol: str) -> dict:
 
 
 def upsert_instrument(conn, symbol: str, details: dict, conid: int) -> int:
-    """Upsert instruments, vendor_ids, and instrument_details. Returns instrument_id."""
+    """
+    Write equity instrument, vendor_ids, and instrument_details.
+    For equities the unique constraint does not prevent duplicates (NULLs in the
+    option key columns). On a confirmed overwrite we delete every existing STK
+    row for this symbol first; ON DELETE CASCADE clears bars, vols, details, and
+    vendor_ids. Then we insert fresh.
+    Returns the new instrument_id.
+    """
     with conn.cursor() as cur:
-        # Equity row
+        # Delete any prior equity rows for this symbol. Cascades clean children.
+        cur.execute(
+            "DELETE FROM instruments WHERE sec_type = 'STK' AND symbol = %s",
+            (symbol,),
+        )
+        deleted = cur.rowcount
+        if deleted:
+            print(f"  {symbol}: removed {deleted} prior instrument row(s)")
+
+        # Fresh equity row
         cur.execute("""
             INSERT INTO instruments (sec_type, symbol, currency, exchange)
             VALUES ('STK', %s, 'USD', %s)
-            ON CONFLICT DO NOTHING
             RETURNING instrument_id
         """, (symbol, details.get("primary_exchange")))
-        row = cur.fetchone()
-        if row:
-            instrument_id = row[0]
-        else:
-            cur.execute(
-                "SELECT instrument_id FROM instruments WHERE sec_type = 'STK' AND symbol = %s",
-                (symbol,),
-            )
-            instrument_id = cur.fetchone()[0]
+        instrument_id = cur.fetchone()[0]
 
         # Vendor id (IB only)
         cur.execute("""
@@ -264,11 +271,9 @@ def seed_equity_data(conn, instrument_id: int, conid: int, symbol: str, years: i
     - ADJUSTED_LAST -> daily_bars.adj_close / adj_factor
     - HISTORICAL_VOLATILITY -> equity_volatilities.historical_vol_30d
     - OPTION_IMPLIED_VOLATILITY -> equity_volatilities.implied_vol_30d
-    - ReportSnapshot fundamentals -> instrument_details (shares_out, market_cap, beta, dividend_ttm)
     Nulls stay null. Failures on optional series are logged and skipped.
     """
     from ib_insync import IB, Contract
-    import xml.etree.ElementTree as ET
     from datetime import date
 
     ib = IB()
@@ -307,6 +312,7 @@ def seed_equity_data(conn, instrument_id: int, conid: int, symbol: str, years: i
         with conn.cursor() as cur:
             for bar in trades:
                 try:
+                    cur.execute("SAVEPOINT bar_sp")
                     bd = _bar_date(bar)
                     close = float(bar.close)
                     adj_close = adj_by_date.get(bd)
@@ -337,7 +343,9 @@ def seed_equity_data(conn, instrument_id: int, conid: int, symbol: str, years: i
                         adj_close, adj_factor,
                     ))
                     written += 1
+                    cur.execute("RELEASE SAVEPOINT bar_sp")
                 except Exception as exc:
+                    cur.execute("ROLLBACK TO SAVEPOINT bar_sp")
                     print(f"  {symbol}: skip bar {getattr(bar, 'date', '?')}: {exc}")
         conn.commit()
         print(f"  {symbol}: {written} daily bars upserted")
@@ -366,52 +374,6 @@ def seed_equity_data(conn, instrument_id: int, conid: int, symbol: str, years: i
         print(f"  {symbol}: {upsert_vols(hist_vol, 'historical_vol_30d')} historical vol rows")
         print(f"  {symbol}: {upsert_vols(impl_vol, 'implied_vol_30d')} implied vol rows")
 
-        # Fundamentals snapshot (best effort)
-        shares_out = market_cap = beta = dividend_ttm = None
-        try:
-            xml = ib.reqFundamentalData(contract, "ReportSnapshot")
-            if xml:
-                root = ET.fromstring(xml)
-                # SharesOut
-                so = root.find(".//SharesOut")
-                if so is not None and so.text:
-                    shares_out = int(float(so.text))
-                # Ratios
-                for ratio in root.findall(".//Ratio"):
-                    name = ratio.get("FieldName") or ""
-                    text = (ratio.text or "").strip()
-                    if not text:
-                        continue
-                    try:
-                        val = float(text)
-                    except ValueError:
-                        continue
-                    if name == "MKTCAP":
-                        market_cap = val
-                    elif name in ("BETA", "ABETA"):
-                        beta = val
-                    elif name in ("ADIVSHR", "TTMDIV", "ADIV5YAVG"):
-                        if dividend_ttm is None:
-                            dividend_ttm = val
-        except Exception as exc:
-            print(f"  {symbol}: fundamentals unavailable ({exc})")
-
-        if any(v is not None for v in (shares_out, market_cap, beta, dividend_ttm)):
-            with conn.cursor() as cur:
-                cur.execute("""
-                    UPDATE instrument_details SET
-                        shares_out = COALESCE(%s, shares_out),
-                        market_cap = COALESCE(%s, market_cap),
-                        beta = COALESCE(%s, beta),
-                        dividend_ttm = COALESCE(%s, dividend_ttm),
-                        fundamentals_as_of = CURRENT_DATE,
-                        updated_at = now()
-                    WHERE instrument_id = %s
-                """, (shares_out, market_cap, beta, dividend_ttm, instrument_id))
-            conn.commit()
-            print(f"  {symbol}: fundamentals written (shares_out={shares_out}, mktcap={market_cap}, beta={beta}, div_ttm={dividend_ttm})")
-        else:
-            print(f"  {symbol}: no fundamentals parsed")
     finally:
         ib.disconnect()
 
