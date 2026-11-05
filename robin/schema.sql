@@ -198,4 +198,7 @@ GRANT SELECT, INSERT, UPDATE ON assets, price_bars TO robin_writer;
 GRANT SELECT ON instruments, vendor_ids, daily_bars, equity_volatilities, option_greeks, tracked_underlyings, admission_events, instrument_details TO student_ro;
 GRANT SELECT, INSERT, UPDATE ON instruments, vendor_ids, daily_bars, equity_volatilities, option_greeks, tracked_underlyings, admission_events, instrument_details TO robin_writer;
 
+-- BIGSERIAL sequences are not covered by table GRANTs
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO robin_writer;
+
 GRANT SELECT ON instrument_coverage TO student_ro, robin_writer;
