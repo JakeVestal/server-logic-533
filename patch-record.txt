@@ -35,3 +35,4 @@
 533serverlogic-039-setup-schedule.patch
 533serverlogic-040-pat-readback.patch
 533serverlogic-041-robin-schema-v2.patch
+533serverlogic-042-instrument-details.patch

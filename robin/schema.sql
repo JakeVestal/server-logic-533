@@ -77,6 +77,20 @@ CREATE TABLE IF NOT EXISTS vendor_ids (
 
 COMMENT ON TABLE vendor_ids IS 'Map from vendor identifier (IB conid or LSEG RIC) to instrument.';
 
+-- Descriptive metadata
+CREATE TABLE IF NOT EXISTS instrument_details (
+  instrument_id       BIGINT PRIMARY KEY REFERENCES instruments(instrument_id) ON DELETE CASCADE,
+  short_name          TEXT,
+  full_name           TEXT,
+  industry            TEXT,
+  sector              TEXT,
+  primary_exchange    TEXT,
+  country             TEXT,
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE instrument_details IS 'Descriptive metadata for filtering and analysis. Null stays null.';
+
 -- Adjusted daily bars. Volume for liquidity. Open interest for options.
 CREATE TABLE IF NOT EXISTS daily_bars (
   instrument_id   BIGINT NOT NULL REFERENCES instruments(instrument_id) ON DELETE CASCADE,
@@ -180,7 +194,7 @@ GRANT USAGE ON SCHEMA public TO student_ro, robin_writer;
 GRANT SELECT ON assets, price_bars TO student_ro;
 GRANT SELECT, INSERT, UPDATE ON assets, price_bars TO robin_writer;
 
-GRANT SELECT ON instruments, vendor_ids, daily_bars, equity_volatilities, option_greeks, tracked_underlyings, admission_events TO student_ro;
-GRANT SELECT, INSERT, UPDATE ON instruments, vendor_ids, daily_bars, equity_volatilities, option_greeks, tracked_underlyings, admission_events TO robin_writer;
+GRANT SELECT ON instruments, vendor_ids, daily_bars, equity_volatilities, option_greeks, tracked_underlyings, admission_events, instrument_details TO student_ro;
+GRANT SELECT, INSERT, UPDATE ON instruments, vendor_ids, daily_bars, equity_volatilities, option_greeks, tracked_underlyings, admission_events, instrument_details TO robin_writer;
 
 GRANT SELECT ON instrument_coverage TO student_ro, robin_writer;
