@@ -147,6 +147,72 @@ def parse_expiry(raw):
     return None
 
 
+LOOKBACK_DAYS = 30
+
+
+def stored_dates(history):
+    found = set()
+    for key in history:
+        try:
+            found.add(datetime.strptime(key, "%Y-%m-%d").date())
+        except (TypeError, ValueError):
+            continue
+    return found
+
+
+_calendar_warned = False
+
+
+def nyse_sessions(start, end):
+    """NYSE sessions in the range, or weekdays if the calendar cannot be loaded."""
+    global _calendar_warned
+    if start > end:
+        return []
+    try:
+        import exchange_calendars as xcals
+        index = xcals.get_calendar("XNYS").sessions_in_range(start, end)
+    except Exception as exc:
+        if not _calendar_warned:
+            print(f"  calendar unavailable ({exc}); weekday check only")
+            _calendar_warned = True
+        days = []
+        day = start
+        while day <= end:
+            if day.weekday() < 5:
+                days.append(day)
+            day += timedelta(days=1)
+        return days
+    out = []
+    for stamp in index:
+        out.append(stamp.date() if hasattr(stamp, "date") else stamp)
+    return out
+
+
+def request_start(history, today):
+    """First date to ask IB for. None when nothing in the recent window is missing.
+
+    A failed night leaves the previous session as the newest bar, so the next
+    run starts the day after that and covers the whole gap. A hole underneath
+    a newer bar is included too, as long as it is inside the lookback.
+    """
+    if not history:
+        return today - timedelta(days=30)
+    stored = stored_dates(history)
+    if not stored:
+        return today - timedelta(days=30)
+    last = max(stored)
+    first = min(stored)
+    window_start = max(first, today - timedelta(days=LOOKBACK_DAYS))
+    missing = [day for day in nyse_sessions(window_start, today) if day not in stored]
+    start = last + timedelta(days=1)
+    if missing:
+        start = min(start, min(missing))
+    if start > today:
+        return None
+    # A 1-day daily request often comes back empty. Overlap two extra days.
+    return min(start, today - timedelta(days=2))
+
+
 def open_robin():
     """Connect as robin_writer. Raises if the password file or login fails."""
     password = open(ROBIN_PASSWORD_FILE).read().strip()
@@ -314,38 +380,47 @@ def main():
                     ib.qualifyContracts(contract)
 
                     history = info.get("price_history", {})
-                    if history:
-                        last = max(history.keys())
-                        start = datetime.strptime(last, "%Y-%m-%d") + timedelta(days=1)
-                    else:
-                        start = datetime.now() - timedelta(days=30)
-
-                    end = datetime.now()
-                    # Skip only when the next missing session is still in the future.
-                    if start.date() > end.date():
-                        print(f"  {conid}: up to date")
-                    else:
-                        bars = ib.reqHistoricalData(
-                            contract,
-                            endDateTime=end,
-                            durationStr=f"{(end - start).days + 1} D",
-                            barSizeSetting=BAR_SIZE,
-                            whatToShow="TRADES",
-                            useRTH=True,
-                            formatDate=1,
-                        )
-
-                        for bar in bars:
-                            date_str = bar.date.strftime("%Y-%m-%d")
-                            history[date_str] = {
-                                "open": bar.open,
-                                "high": bar.high,
-                                "low": bar.low,
-                                "close": bar.close,
-                                "volume": bar.volume,
-                            }
+                    if not isinstance(history, dict):
+                        history = {}
                         info["price_history"] = history
-                        changed = True
+                    end = datetime.now()
+                    today = end.date()
+                    before = json.dumps(history, sort_keys=True)
+                    try:
+                        start = request_start(history, today)
+                        if start is None:
+                            print(f"  {conid}: up to date")
+                        else:
+                            span = (today - start).days + 1
+                            if span > 365:
+                                print(f"  {conid}: gap is {span} days; requesting the latest 365")
+                                span = 365
+                            print(f"  {conid}: requesting {span} day(s) ending {today}")
+                            bars = ib.reqHistoricalData(
+                                contract,
+                                endDateTime=end,
+                                durationStr=f"{span} D",
+                                barSizeSetting=BAR_SIZE,
+                                whatToShow="TRADES",
+                                useRTH=True,
+                                formatDate=1,
+                            )
+                            for bar in bars:
+                                date_str = bar.date.strftime("%Y-%m-%d")
+                                history[date_str] = {
+                                    "open": bar.open,
+                                    "high": bar.high,
+                                    "low": bar.low,
+                                    "close": bar.close,
+                                    "volume": bar.volume,
+                                }
+                            info["price_history"] = history
+                            if json.dumps(history, sort_keys=True) != before:
+                                changed = True
+                    except Exception as exc:
+                        status["github_ok"] = False
+                        errors.append(f"{owner}/{repo} {conid}: price request failed")
+                        print(f"  ERROR requesting {conid}: {exc}")
 
                     if robin is None:
                         continue
