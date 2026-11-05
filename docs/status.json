@@ -1,5 +1,5 @@
 {
-  "probed_at": "2026-11-05T13:29:02Z",
+  "probed_at": "2026-11-05T13:37:27Z",
   "ok": true,
   "host": "luffy",
   "repos": [
@@ -84,15 +84,15 @@
       "username": "Jason-Dorman",
       "repo": "pmcc-strategy",
       "url": "https://github.com/Jason-Dorman/pmcc-strategy",
-      "last_push": null,
-      "connected": false
+      "last_push": "2026-11-05T13:36:44Z",
+      "connected": true
     },
     {
       "username": "JamesGao2003",
       "repo": "option-surface-lab",
       "url": "https://github.com/JamesGao2003/option-surface-lab",
-      "last_push": null,
-      "connected": false
+      "last_push": "2026-11-05T13:36:46Z",
+      "connected": true
     },
     {
       "username": "nilsbln4",
