@@ -76,12 +76,12 @@ chmod 600 /opt/trading/status_dispatch.token
 
 ## Operator commands
 
-Run these on Luffy as root. Deploy installs them to `/opt/trading`. The copies in `host_files/` are the source. `student_repos.json` stays mode 600 inside CT 200. None of these scripts print a token.
+Run these on Luffy as root. Deploy installs them to `/opt/trading`. The copies in `host_files/` are the source. `student_repos.json` stays mode 600 inside CT 200. None of these scripts print a full token. `view_repos.sh` and `update_pat.sh` print a mask: the first 7 characters, then `...`, then the last 4.
 
 | Command | What it does |
 |---|---|
 | `add_repo.sh` | Asks for a repo URL and a PAT. Appends one object. Refuses a duplicate URL. |
-| `update_pat.sh` | Asks for a username, repo name, or URL. Lists matches. You pick one. Then it reads a new PAT and replaces that one token. A search that hits several repos does not change the others. No match means they are not subscribed: use `add_repo.sh`. |
+| `update_pat.sh` | Asks for a username, repo name, or URL. Lists matches. You pick one. Then it reads a new PAT, replaces that one token, reads it back from disk, and prints it masked. A search that hits several repos does not change the others. No match means they are not subscribed: use `add_repo.sh`. |
 | `view_repos.sh` | Prints the URLs with the tokens masked. |
 | `remove_repo.sh` | Removes one entry whose URL matches exactly. |
 | `delete_repo.sh` | Removes every entry whose URL contains the search string. Confirm only if that is what you mean. |
