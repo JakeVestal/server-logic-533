@@ -320,6 +320,14 @@ def seed_equity_data(conn, instrument_id: int, conid: int, symbol: str, years: i
         hist_vol = fetch("HISTORICAL_VOLATILITY")
         impl_vol = fetch("OPTION_IMPLIED_VOLATILITY")
 
+        print(f"  {symbol}: received {len(trades)} TRADES, {len(adjusted)} ADJUSTED_LAST, {len(hist_vol)} HISTORICAL_VOLATILITY, {len(impl_vol)} OPTION_IMPLIED_VOLATILITY")
+        if trades:
+            b = trades[0]
+            print(f"  {symbol}: sample TRADES bar: date={b.date} o={b.open} h={b.high} l={b.low} c={b.close} v={b.volume} vwap={getattr(b, 'vwap', None)} count={getattr(b, 'barCount', None)}")
+        if adjusted:
+            b = adjusted[0]
+            print(f"  {symbol}: sample ADJUSTED_LAST bar: date={b.date} close={b.close}")
+
         # Map adjusted close by date
         adj_by_date = {}
         for bar in adjusted:
