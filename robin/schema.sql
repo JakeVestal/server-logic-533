@@ -53,18 +53,19 @@ CREATE TABLE IF NOT EXISTS instruments (
   expiry                DATE,
   last_trade_date       DATE,
   strike                NUMERIC,
-  right                 TEXT,
+  contract_right        TEXT,
   multiplier            NUMERIC,
   trading_class         TEXT,
   currency              TEXT NOT NULL DEFAULT 'USD',
   exchange              TEXT,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (underlying_id, expiry, strike, right, multiplier)
+  UNIQUE (underlying_id, expiry, strike, contract_right, multiplier)
 );
 
-COMMENT ON TABLE instruments IS 'Vendor-neutral instrument. Options identified by underlying + expiry + strike + right + multiplier.';
+COMMENT ON TABLE instruments IS 'Vendor-neutral instrument. Options identified by underlying + expiry + strike + contract_right + multiplier.';
 COMMENT ON COLUMN instruments.expiry IS 'Precise expiry date from IB contract details (YYYY-MM-DD).';
 COMMENT ON COLUMN instruments.last_trade_date IS 'Actual last trading day. Prefer this for tracking end when it differs from expiry.';
+COMMENT ON COLUMN instruments.contract_right IS 'Option right: C or P. Null for non-options.';
 COMMENT ON COLUMN instruments.multiplier IS 'From IB. Application must error if != 100 for options.';
 
 CREATE TABLE IF NOT EXISTS vendor_ids (
