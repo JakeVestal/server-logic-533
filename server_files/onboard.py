@@ -250,6 +250,172 @@ def upsert_instrument(conn, symbol: str, details: dict, conid: int) -> int:
     return instrument_id
 
 
+def _bar_date(bar) -> "date":
+    d = bar.date
+    if hasattr(d, "date"):
+        d = d.date()
+    return d
+
+
+def seed_equity_data(conn, instrument_id: int, conid: int, symbol: str, years: int = 1) -> None:
+    """
+    Fetch 1 year of equity seed data from IB and write to Robin.
+    - TRADES -> daily_bars (OHLCV + vwap + trade_count)
+    - ADJUSTED_LAST -> daily_bars.adj_close / adj_factor
+    - HISTORICAL_VOLATILITY -> equity_volatilities.historical_vol_30d
+    - OPTION_IMPLIED_VOLATILITY -> equity_volatilities.implied_vol_30d
+    - ReportSnapshot fundamentals -> instrument_details (shares_out, market_cap, beta, dividend_ttm)
+    Nulls stay null. Failures on optional series are logged and skipped.
+    """
+    from ib_insync import IB, Contract
+    import xml.etree.ElementTree as ET
+    from datetime import date
+
+    ib = IB()
+    try:
+        ib.connect(IB_HOST, IB_PORT, clientId=IB_CLIENT_ID)
+        contract = Contract(conId=conid, exchange="SMART", secType="STK", currency="USD")
+        ib.qualifyContracts(contract)
+        duration = f"{years} Y"
+
+        def fetch(what: str):
+            print(f"  {symbol}: requesting {what} ({duration})")
+            return ib.reqHistoricalData(
+                contract,
+                endDateTime="",
+                durationStr=duration,
+                barSizeSetting="1 day",
+                whatToShow=what,
+                useRTH=True,
+                formatDate=1,
+            ) or []
+
+        trades = fetch("TRADES")
+        adjusted = fetch("ADJUSTED_LAST")
+        hist_vol = fetch("HISTORICAL_VOLATILITY")
+        impl_vol = fetch("OPTION_IMPLIED_VOLATILITY")
+
+        # Map adjusted close by date
+        adj_by_date = {}
+        for bar in adjusted:
+            try:
+                adj_by_date[_bar_date(bar)] = float(bar.close)
+            except (TypeError, ValueError):
+                pass
+
+        written = 0
+        with conn.cursor() as cur:
+            for bar in trades:
+                try:
+                    bd = _bar_date(bar)
+                    close = float(bar.close)
+                    adj_close = adj_by_date.get(bd)
+                    adj_factor = (adj_close / close) if (adj_close is not None and close) else None
+                    cur.execute("""
+                        INSERT INTO daily_bars (
+                            instrument_id, bar_date, open, high, low, close,
+                            volume, open_interest, vendor, vwap, trade_count,
+                            adj_close, adj_factor
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, NULL, 'ib', %s, %s, %s, %s)
+                        ON CONFLICT (instrument_id, bar_date) DO UPDATE SET
+                            open = EXCLUDED.open,
+                            high = EXCLUDED.high,
+                            low = EXCLUDED.low,
+                            close = EXCLUDED.close,
+                            volume = EXCLUDED.volume,
+                            vwap = EXCLUDED.vwap,
+                            trade_count = EXCLUDED.trade_count,
+                            adj_close = EXCLUDED.adj_close,
+                            adj_factor = EXCLUDED.adj_factor,
+                            vendor = EXCLUDED.vendor
+                    """, (
+                        instrument_id, bd,
+                        float(bar.open), float(bar.high), float(bar.low), close,
+                        int(bar.volume) if bar.volume is not None else None,
+                        float(bar.average) if bar.average else None,
+                        int(bar.barCount) if bar.barCount else None,
+                        adj_close, adj_factor,
+                    ))
+                    written += 1
+                except Exception as exc:
+                    print(f"  {symbol}: skip bar {getattr(bar, 'date', '?')}: {exc}")
+        conn.commit()
+        print(f"  {symbol}: {written} daily bars upserted")
+
+        # Vols
+        def upsert_vols(bars, column: str) -> int:
+            n = 0
+            with conn.cursor() as cur:
+                for bar in bars:
+                    try:
+                        bd = _bar_date(bar)
+                        val = float(bar.close)
+                        cur.execute(f"""
+                            INSERT INTO equity_volatilities (instrument_id, as_of_date, {column}, source)
+                            VALUES (%s, %s, %s, 'ib')
+                            ON CONFLICT (instrument_id, as_of_date) DO UPDATE SET
+                                {column} = EXCLUDED.{column},
+                                source = 'ib'
+                        """, (instrument_id, bd, val))
+                        n += 1
+                    except Exception:
+                        pass
+            conn.commit()
+            return n
+
+        print(f"  {symbol}: {upsert_vols(hist_vol, 'historical_vol_30d')} historical vol rows")
+        print(f"  {symbol}: {upsert_vols(impl_vol, 'implied_vol_30d')} implied vol rows")
+
+        # Fundamentals snapshot (best effort)
+        shares_out = market_cap = beta = dividend_ttm = None
+        try:
+            xml = ib.reqFundamentalData(contract, "ReportSnapshot")
+            if xml:
+                root = ET.fromstring(xml)
+                # SharesOut
+                so = root.find(".//SharesOut")
+                if so is not None and so.text:
+                    shares_out = int(float(so.text))
+                # Ratios
+                for ratio in root.findall(".//Ratio"):
+                    name = ratio.get("FieldName") or ""
+                    text = (ratio.text or "").strip()
+                    if not text:
+                        continue
+                    try:
+                        val = float(text)
+                    except ValueError:
+                        continue
+                    if name == "MKTCAP":
+                        market_cap = val
+                    elif name in ("BETA", "ABETA"):
+                        beta = val
+                    elif name in ("ADIVSHR", "TTMDIV", "ADIV5YAVG"):
+                        if dividend_ttm is None:
+                            dividend_ttm = val
+        except Exception as exc:
+            print(f"  {symbol}: fundamentals unavailable ({exc})")
+
+        if any(v is not None for v in (shares_out, market_cap, beta, dividend_ttm)):
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE instrument_details SET
+                        shares_out = COALESCE(%s, shares_out),
+                        market_cap = COALESCE(%s, market_cap),
+                        beta = COALESCE(%s, beta),
+                        dividend_ttm = COALESCE(%s, dividend_ttm),
+                        fundamentals_as_of = CURRENT_DATE,
+                        updated_at = now()
+                    WHERE instrument_id = %s
+                """, (shares_out, market_cap, beta, dividend_ttm, instrument_id))
+            conn.commit()
+            print(f"  {symbol}: fundamentals written (shares_out={shares_out}, mktcap={market_cap}, beta={beta}, div_ttm={dividend_ttm})")
+        else:
+            print(f"  {symbol}: no fundamentals parsed")
+    finally:
+        ib.disconnect()
+
+
 def print_card(symbol: str, details: dict, conid: int, instrument_id: int):
     print("\nResolved instrument:")
     print(f"  symbol:            {symbol}")
@@ -284,7 +450,7 @@ def resolve_equity(symbol: str) -> int:
     instrument_id, bar_count = check_existing(symbol)
     if instrument_id is not None:
         print(f"{symbol} already exists (instrument_id={instrument_id}, {bar_count} daily bars).")
-        print("Proceeding will update the instrument details.")
+        print("Proceeding will update instrument details and refresh 1 year of equity data.")
         answer = input("Continue? [y/N] ").strip().lower()
         if answer not in ("y", "yes"):
             raise RuntimeError(f"User declined to update existing {symbol}. Aborting.")
@@ -312,8 +478,10 @@ def resolve_equity(symbol: str) -> int:
         # Write only after explicit confirmation
         with open_robin() as conn:
             instrument_id = upsert_instrument(conn, symbol, details, conid)
+            print(f"Confirmed and written. instrument_id = {instrument_id}")
+            print(f"Seeding 1 year of equity data for {symbol}...")
+            seed_equity_data(conn, instrument_id, conid, symbol, years=1)
 
-        print(f"Confirmed and written. instrument_id = {instrument_id}")
         return instrument_id
     finally:
         gateway_stop()

@@ -47,3 +47,4 @@
 533serverlogic-052-confirm-before-write.patch
 533serverlogic-053-sequence-grant.patch
 533serverlogic-054-existing-check.patch
+533serverlogic-056-equity-seed.patch
