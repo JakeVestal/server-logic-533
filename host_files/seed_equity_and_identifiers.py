@@ -158,8 +158,17 @@ def seed_equity_and_identifiers(
         if "Date" in hist_df.columns:
             hist_df["date"] = pd.to_datetime(hist_df["Date"]).dt.date
             hist_df = hist_df.drop(columns=["Date"])
+        elif hist_df.index.name == "date" or (hasattr(hist_df.index, "date") is False and "date" not in hist_df.columns):
+            # Fallback: if LSEG already put dates on the index
+            if hist_df.index.name is not None or not isinstance(hist_df.index, pd.RangeIndex):
+                hist_df = hist_df.reset_index()
+                if "index" in hist_df.columns and "date" not in hist_df.columns:
+                    hist_df = hist_df.rename(columns={"index": "date"})
         if "date" in hist_df.columns:
-            hist_df = hist_df.set_index("date").sort_index()
+            hist_df["date"] = pd.to_datetime(hist_df["date"]).dt.date
+            hist_df = hist_df.sort_values("date")
+        else:
+            raise RuntimeError("Historical data has no date column after processing")
 
         float_cols = ["open", "high", "low", "close", "ts_vwap", "turnover"]
         int_cols = ["volume", "number_of_trades", "number_of_block_trades"]
