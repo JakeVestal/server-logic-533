@@ -51,3 +51,4 @@
 533serverlogic-057-overwrite-no-fundamentals.patch
 533serverlogic-058-full-wipe-confirm.patch
 533serverlogic-061-sample-print.patch
+533serverlogic-064-lseg-guidelines.patch
