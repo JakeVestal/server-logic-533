@@ -52,3 +52,4 @@
 533serverlogic-058-full-wipe-confirm.patch
 533serverlogic-061-sample-print.patch
 533serverlogic-064-lseg-guidelines.patch
+533serverlogic-065-strip-robin-from-course-job.patch
