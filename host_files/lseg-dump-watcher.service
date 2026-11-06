@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch data_dump and load LSEG seed CSVs into Robin
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/server-logic-533/host_files/watch_data_dump.sh
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

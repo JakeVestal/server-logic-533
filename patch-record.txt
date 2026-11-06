@@ -60,3 +60,4 @@
 533serverlogic-071-fix-history-dates.patch
 533serverlogic-072-schema-and-loader.patch
 533serverlogic-074-loader-move-on-success (1).patch
+533serverlogic-075-watcher-drain-and-systemd.patch
