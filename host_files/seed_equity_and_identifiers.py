@@ -120,6 +120,7 @@ def seed_equity_and_identifiers(
 
         # --- Historical ---
         hist_fields = [
+            "TR.PriceClose.date",
             "TR.OPENPRICE",
             "TR.HIGHPRICE",
             "TR.LOWPRICE",
@@ -155,9 +156,10 @@ def seed_equity_and_identifiers(
         )
         hist_df = hist_raw.rename(columns={k: v for k, v in hist_rename.items() if k in hist_raw.columns})
 
-        if "Date" in hist_df.columns:
-            hist_df["date"] = pd.to_datetime(hist_df["Date"]).dt.date
-            hist_df = hist_df.drop(columns=["Date"])
+        date_col = next((c for c in ("Date", "Price Close Date", "TR.PriceClose.date") if c in hist_df.columns), None)
+        if date_col:
+            hist_df["date"] = pd.to_datetime(hist_df[date_col]).dt.date
+            hist_df = hist_df.drop(columns=[date_col])
         elif hist_df.index.name == "date" or (hasattr(hist_df.index, "date") is False and "date" not in hist_df.columns):
             # Fallback: if LSEG already put dates on the index
             if hist_df.index.name is not None or not isinstance(hist_df.index, pd.RangeIndex):

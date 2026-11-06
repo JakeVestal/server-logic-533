@@ -61,3 +61,4 @@
 533serverlogic-072-schema-and-loader.patch
 533serverlogic-074-loader-move-on-success (1).patch
 533serverlogic-075-watcher-drain-and-systemd.patch
+533serverlogic-076-add-priceclose-date.patch
