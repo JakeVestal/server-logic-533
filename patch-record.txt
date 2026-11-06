@@ -63,3 +63,4 @@
 533serverlogic-075-watcher-drain-and-systemd.patch
 533serverlogic-076-add-priceclose-date.patch
 533serverlogic-077-loader-skip-unknown-ric.patch
+533serverlogic-079-loader-no-skip (1).patch

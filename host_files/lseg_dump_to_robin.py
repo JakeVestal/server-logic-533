@@ -108,10 +108,26 @@ def upsert_bars(conn, df: pd.DataFrame) -> int:
                 WHERE v.vendor='lseg' AND v.vendor_id=%s
             """, (ric,))
             res = cur.fetchone()
-            if not res:
-                print(f"  skip bars for {ric}: no matching identifier")
-                continue
-            iid = res[0]
+            if res:
+                iid = res[0]
+            else:
+                # Minimal row so the bar can land. Details filled later if identifiers arrive.
+                cur.execute("SELECT instrument_id FROM instruments WHERE sec_type='STK' AND symbol=%s", (ric,))
+                res = cur.fetchone()
+                if res:
+                    iid = res[0]
+                else:
+                    cur.execute("""
+                        INSERT INTO instruments (sec_type, symbol, currency)
+                        VALUES ('STK', %s, 'USD')
+                        RETURNING instrument_id
+                    """, (ric,))
+                    iid = cur.fetchone()[0]
+                cur.execute("""
+                    INSERT INTO vendor_ids (instrument_id, vendor, vendor_id)
+                    VALUES (%s, 'lseg', %s)
+                    ON CONFLICT (vendor, vendor_id) DO NOTHING
+                """, (iid, ric))
             cur.execute("""
                 INSERT INTO daily_bars (
                     instrument_id, bar_date, open, high, low, close,
