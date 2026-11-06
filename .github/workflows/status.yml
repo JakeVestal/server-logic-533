@@ -1,5 +1,11 @@
 name: Luffy status
 
+# Only one status run at a time. Newer runs cancel older ones.
+# This prevents burst commits of docs/status.json that race Pages deployments.
+concurrency:
+  group: luffy-status
+  cancel-in-progress: true
+
 # No timer. Runs when:
 #   - you click Actions → Luffy status → Run workflow
 #   - Luffy calls publish_status.sh (manual, or the end of the price run)
