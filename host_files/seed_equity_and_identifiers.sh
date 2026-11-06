@@ -64,7 +64,7 @@ if (( ${#rics[@]} == 0 )); then
   exit 2
 fi
 
-batch_size=25
+batch_size=5
 total=${#rics[@]}
 echo "Seeding $total RIC(s) in batches of $batch_size"
 
