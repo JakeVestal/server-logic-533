@@ -19,3 +19,20 @@ COMMENT ON COLUMN instrument_details.organization_id IS 'LSEG Organization PermI
 COMMENT ON COLUMN instrument_details.primary_ric IS 'LSEG Primary Issue RIC. Null stays null.';
 COMMENT ON COLUMN daily_bars.turnover IS 'From LSEG TR.TURNOVER. Null stays null.';
 COMMENT ON COLUMN daily_bars.number_of_block_trades IS 'From LSEG TR.NUMBEROFBLOCKTRADES. Null stays null.';
+
+-- Instruments that have been admitted but have no daily bars yet.
+-- Should be empty in normal operation.
+CREATE OR REPLACE VIEW coverage_gaps AS
+SELECT
+  i.instrument_id,
+  i.symbol,
+  v.vendor_id AS ric,
+  d.short_name
+FROM instruments i
+JOIN vendor_ids v ON v.instrument_id = i.instrument_id AND v.vendor = 'lseg'
+LEFT JOIN instrument_details d ON d.instrument_id = i.instrument_id
+WHERE NOT EXISTS (
+  SELECT 1 FROM daily_bars b WHERE b.instrument_id = i.instrument_id
+);
+
+COMMENT ON VIEW coverage_gaps IS 'Equities with an identifier but no daily bars. Empty is healthy.';

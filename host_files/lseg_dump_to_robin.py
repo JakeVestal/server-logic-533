@@ -109,7 +109,7 @@ def upsert_bars(conn, df: pd.DataFrame) -> int:
             """, (ric,))
             res = cur.fetchone()
             if not res:
-                continue  # identifiers must be loaded first
+                raise RuntimeError(f"bars for unknown RIC {ric} — no matching identifier. Stopping.")
             iid = res[0]
             cur.execute("""
                 INSERT INTO daily_bars (
@@ -159,6 +159,7 @@ def main():
                 print(f"  {n} bars")
             else:
                 continue
+            # Move only after this file succeeded
             f.rename(PROCESSED / f.name)
     return 0
 
