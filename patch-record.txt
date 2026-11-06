@@ -54,3 +54,4 @@
 533serverlogic-064-lseg-guidelines.patch
 533serverlogic-065-strip-robin-from-course-job.patch
 533serverlogic-066-seed-equity-function.patch
+533serverlogic-068-seed-wrapper-batched.patch
