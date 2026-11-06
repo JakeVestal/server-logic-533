@@ -58,3 +58,4 @@
 533serverlogic-069-wrapper-venv-python.patch
 533serverlogic-070-smaller-batches.patch
 533serverlogic-071-fix-history-dates.patch
+533serverlogic-072-schema-and-loader.patch
