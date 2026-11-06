@@ -74,7 +74,7 @@ while (( i < total )); do
   n=$(next_num)
   echo "Batch $((i/batch_size + 1)): ${#batch[@]} RIC(s) → identifiers-seed-$n.csv / equity-seed-$n.csv"
 
-  python3 - "$PY" "$DUMP_DIR" "$n" "${batch[@]}" << 'PY'
+  /opt/trading/lseg-venv/bin/python3 - "$PY" "$DUMP_DIR" "$n" "${batch[@]}" << 'PY'
 import sys
 py_path, dump_dir, n = sys.argv[1], sys.argv[2], sys.argv[3]
 sys.path.insert(0, py_path.rsplit("/", 1)[0])
