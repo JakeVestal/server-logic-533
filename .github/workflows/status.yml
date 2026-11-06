@@ -58,9 +58,32 @@ jobs:
           if not m:
               sys.stderr.write(text[-2000:])
               sys.exit("probe did not return dashboard JSON")
-          data = json.loads(m.group(1))
+          new_data = json.loads(m.group(1))
           path = pathlib.Path("docs/status.json")
-          path.write_text(json.dumps(data, indent=2) + "\n")
+
+          # Load existing if present so we can compare meaningful content
+          existing = None
+          if path.exists():
+              try:
+                  existing = json.loads(path.read_text())
+              except Exception:
+                  pass
+
+          def meaningful(d):
+              if not isinstance(d, dict):
+                  return None
+              return {
+                  "ok": d.get("ok"),
+                  "host": d.get("host"),
+                  "repos": d.get("repos"),
+              }
+
+          if existing and meaningful(existing) == meaningful(new_data):
+              print("status unchanged (repos identical); skipping write")
+              sys.exit(0)
+
+          path.write_text(json.dumps(new_data, indent=2) + "\n")
+          print("status changed; wrote docs/status.json")
           PY
 
       - name: Commit status
