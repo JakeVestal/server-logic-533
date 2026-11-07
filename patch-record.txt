@@ -80,3 +80,4 @@
 533serverlogic-094-seeder-fstring.patch
 533serverlogic-095-seeder-retry.patch
 533serverlogic-096-loader-include-options.patch
+533serverlogic-098-loader-drop-unwritable.patch

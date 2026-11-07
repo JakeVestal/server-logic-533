@@ -96,6 +96,12 @@ def upsert_identifiers(conn, df: pd.DataFrame) -> int:
 def upsert_bars(conn, df: pd.DataFrame) -> int:
     if "date" not in df.columns:
         raise RuntimeError("equity CSV missing date column")
+    # Drop rows that cannot be written (no date or no RIC). Log and continue.
+    before = len(df)
+    df = df[df["Instrument"].notna() & df["date"].notna()].copy()
+    dropped = before - len(df)
+    if dropped:
+        print(f"  dropped {dropped} unwritable row(s)")
     n = 0
     with conn.cursor() as cur:
         for _, row in df.iterrows():
