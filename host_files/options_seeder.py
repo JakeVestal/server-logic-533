@@ -92,7 +92,11 @@ def next_batch(conn):
       s.underlying
     LIMIT %s
     """
-    return pd.read_sql(sql, conn, params=(BATCH_CONTRACTS,))
+    with conn.cursor() as cur:
+        cur.execute(sql, (BATCH_CONTRACTS,))
+        cols = [d[0] for d in cur.description]
+        rows = cur.fetchall()
+    return pd.DataFrame(rows, columns=cols)
 
 
 def open_session():
