@@ -29,7 +29,7 @@ fi
 echo "[$(date +'%H:%M:%S')] Watching $DUMP_DIR for new seed CSVs..."
 inotifywait -m -e close_write -e moved_to --format '%f' "$DUMP_DIR" | while read -r file; do
   case "$file" in
-    identifiers-seed-*.csv|equity-seed-*.csv)
+    identifiers-seed-*.csv|equity-seed-*.csv|options-seed-*.csv)
       echo "[$(date +'%H:%M:%S')] New file: $file"
       run_loader
       ;;

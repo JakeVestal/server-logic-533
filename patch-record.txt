@@ -70,3 +70,4 @@
 533serverlogic-084-drop-null-ohlc-rows.patch
 533serverlogic-085-identifiers-first.patch
 533serverlogic-086-drop-coverage-gaps.patch
+533serverlogic-087-options-schema-loader-nami.patch

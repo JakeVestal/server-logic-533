@@ -158,6 +158,64 @@ def upsert_bars(conn, df: pd.DataFrame) -> int:
     return n
 
 
+def upsert_options(conn, df: pd.DataFrame) -> int:
+    """Upsert option bars. Expects columns matching option_bars plus Instrument (RIC)."""
+    if "date" not in df.columns:
+        raise RuntimeError("options CSV missing date column")
+    n = 0
+    with conn.cursor() as cur:
+        for _, row in df.iterrows():
+            ric = str(row.get("Instrument", "")).strip()
+            if not ric or pd.isna(row.get("date")):
+                continue
+            # Resolve or create instrument
+            cur.execute("""
+                SELECT i.instrument_id FROM instruments i
+                JOIN vendor_ids v ON v.instrument_id = i.instrument_id
+                WHERE v.vendor='lseg' AND v.vendor_id=%s
+            """, (ric,))
+            res = cur.fetchone()
+            if res:
+                iid = res[0]
+            else:
+                cur.execute("""
+                    INSERT INTO instruments (sec_type, symbol, currency)
+                    VALUES ('OPT', %s, 'USD')
+                    RETURNING instrument_id
+                """, (ric,))
+                iid = cur.fetchone()[0]
+                cur.execute("""
+                    INSERT INTO vendor_ids (instrument_id, vendor, vendor_id)
+                    VALUES (%s, 'lseg', %s)
+                    ON CONFLICT (vendor, vendor_id) DO NOTHING
+                """, (iid, ric))
+            cur.execute("""
+                INSERT INTO option_bars (
+                    instrument_id, bar_date, open, high, low, close,
+                    volume, open_interest, implied_vol, delta, gamma,
+                    theta, vega, rho, bid, ask, mid, vendor
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'lseg')
+                ON CONFLICT (instrument_id, bar_date) DO UPDATE SET
+                    open=EXCLUDED.open, high=EXCLUDED.high, low=EXCLUDED.low,
+                    close=EXCLUDED.close, volume=EXCLUDED.volume,
+                    open_interest=EXCLUDED.open_interest, implied_vol=EXCLUDED.implied_vol,
+                    delta=EXCLUDED.delta, gamma=EXCLUDED.gamma, theta=EXCLUDED.theta,
+                    vega=EXCLUDED.vega, rho=EXCLUDED.rho, bid=EXCLUDED.bid,
+                    ask=EXCLUDED.ask, mid=EXCLUDED.mid, vendor=EXCLUDED.vendor
+            """, (
+                iid, row["date"],
+                row.get("open"), row.get("high"), row.get("low"), row.get("close"),
+                int(row["volume"]) if pd.notna(row.get("volume")) else None,
+                int(row["open_interest"]) if pd.notna(row.get("open_interest")) else None,
+                row.get("implied_vol"), row.get("delta"), row.get("gamma"),
+                row.get("theta"), row.get("vega"), row.get("rho"),
+                row.get("bid"), row.get("ask"), row.get("mid"),
+            ))
+            n += 1
+    conn.commit()
+    return n
+
+
 def main():
     PROCESSED.mkdir(exist_ok=True)
     # Identifiers first so instruments exist before bars are loaded
@@ -177,6 +235,9 @@ def main():
             elif f.name.startswith("equity-seed-"):
                 n = upsert_bars(conn, df)
                 print(f"  {n} bars")
+            elif f.name.startswith("options-seed-"):
+                n = upsert_options(conn, df)
+                print(f"  {n} option bars")
             else:
                 continue
             # Move only if every row in the file was written
