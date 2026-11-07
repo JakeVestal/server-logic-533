@@ -64,3 +64,4 @@
 533serverlogic-076-add-priceclose-date.patch
 533serverlogic-077-loader-skip-unknown-ric.patch
 533serverlogic-079-loader-no-skip (1).patch
+533serverlogic-081-yesterday-and-dup-view.patch

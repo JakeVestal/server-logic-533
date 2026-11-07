@@ -76,11 +76,9 @@ def seed_equity_and_identifiers(
         now_est = datetime.now(est)
         market_close = now_est.replace(hour=16, minute=0, second=0, microsecond=0)
 
-        end_date = (
-            (now_est - timedelta(days=1)).strftime("%Y-%m-%d")
-            if now_est < market_close
-            else now_est.strftime("%Y-%m-%d")
-        )
+        # Always end at yesterday. LSEG's "today" bar is unreliable
+        # (duplicate dates, zero volume) until the official close is published.
+        end_date = (now_est - timedelta(days=1)).strftime("%Y-%m-%d")
         start_date = (now_est - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
 
         # --- Reference ---
