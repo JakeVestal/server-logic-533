@@ -69,7 +69,7 @@ def get_conn():
 
 def next_batch(conn):
     """Return prioritized untracked contracts with last close."""
-    sql = """
+    sql = f"""
     WITH last_close AS (
       SELECT v.vendor_id AS underlying, b.close
       FROM vendor_ids v
