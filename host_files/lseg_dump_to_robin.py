@@ -176,8 +176,11 @@ def main():
                 print(f"  {n} bars")
             else:
                 continue
-            # Move only after this file succeeded
-            f.rename(PROCESSED / f.name)
+            # Move only if every row in the file was written
+            if n == len(df):
+                f.rename(PROCESSED / f.name)
+            else:
+                print(f"  {f.name}: wrote {n}/{len(df)} rows — leaving in place")
     return 0
 
 
