@@ -191,6 +191,23 @@ def seed_equity_and_identifiers(
                 hist_df[c] = pd.to_numeric(hist_df[c], errors="coerce").astype("Int64")
 
         print(f"Historical query successful ({len(hist_df)} rows, {start_date} → {end_date})")
+
+        # Drop rows that cannot become daily bars (no date or no OHLC).
+        # Log them so the gap is visible; do not invent values.
+        before = len(hist_df)
+        price_cols = [c for c in ("open", "high", "low", "close") if c in hist_df.columns]
+        mask = hist_df["date"].notna() if "date" in hist_df.columns else True
+        if price_cols:
+            mask = mask & hist_df[price_cols].notna().all(axis=1)
+        dropped = hist_df.loc[~mask] if isinstance(mask, pd.Series) else hist_df.iloc[0:0]
+        if len(dropped):
+            print(f"  dropped {len(dropped)} row(s) with null date or OHLC:")
+            for _, r in dropped.iterrows():
+                print(f"    {r.get('Instrument', '?')}  date={r.get('date')}  "
+                      f"o={r.get('open')} h={r.get('high')} l={r.get('low')} c={r.get('close')}")
+        hist_df = hist_df.loc[mask].copy() if isinstance(mask, pd.Series) else hist_df
+        print(f"  kept {len(hist_df)}/{before} rows")
+
         return ref_df, hist_df
 
     finally:
