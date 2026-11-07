@@ -160,7 +160,10 @@ def upsert_bars(conn, df: pd.DataFrame) -> int:
 
 def main():
     PROCESSED.mkdir(exist_ok=True)
-    files = sorted(DUMP_DIR.glob("*-seed-*.csv"))
+    # Identifiers first so instruments exist before bars are loaded
+    id_files = sorted(DUMP_DIR.glob("identifiers-seed-*.csv"))
+    eq_files = sorted(DUMP_DIR.glob("equity-seed-*.csv"))
+    files = id_files + eq_files
     if not files:
         print("No seed CSVs found")
         return 0
