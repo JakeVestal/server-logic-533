@@ -53,7 +53,11 @@ def tracked_underlyings(conn) -> list[str]:
             JOIN instruments i ON i.instrument_id = v.instrument_id
             WHERE v.vendor = 'lseg' AND i.sec_type = 'STK'
         """)
-        return [r[0] for r in cur.fetchall()]
+        out = []
+        for r in cur.fetchall():
+            v = r[0]
+            out.append(v.decode() if isinstance(v, (bytes, bytearray)) else str(v))
+        return out
 
 
 def last_close(conn, underlying: str) -> float | None:
