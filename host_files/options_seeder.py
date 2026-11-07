@@ -90,13 +90,20 @@ def next_batch(conn):
       CASE WHEN lc.close IS NULL OR lc.close = 0 THEN 999
            ELSE ABS(s.strike - lc.close) / lc.close END ASC,
       s.underlying
-    LIMIT %s
+    LIMIT {BATCH_CONTRACTS}
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (BATCH_CONTRACTS,))
+        cur.execute(sql)
         cols = [d[0] for d in cur.description]
         rows = cur.fetchall()
-    return pd.DataFrame(rows, columns=cols)
+    # Decode any bytes columns
+    clean = []
+    for row in rows:
+        clean.append(tuple(
+            v.decode() if isinstance(v, (bytes, bytearray)) else v
+            for v in row
+        ))
+    return pd.DataFrame(clean, columns=cols)
 
 
 def open_session():
