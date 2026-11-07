@@ -62,7 +62,7 @@ def last_close(conn, underlying: str) -> float | None:
             SELECT b.close
             FROM vendor_ids v
             JOIN daily_bars b ON b.instrument_id = v.instrument_id
-            WHERE v.vendor = 'lseg' AND v.vendor_id = %s
+            WHERE v.vendor = 'lseg' AND v.vendor_id = %s::text
             ORDER BY b.bar_date DESC
             LIMIT 1
         """, (underlying,))

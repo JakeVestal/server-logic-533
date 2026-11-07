@@ -74,3 +74,4 @@
 533serverlogic-088-options-seeder-and-nami.patch
 533serverlogic-089-seeder-fix-and-shopping-rules.patch
 533serverlogic-090-nami-discovery.patch
+533serverlogic-091-nami-text-cast.patch
