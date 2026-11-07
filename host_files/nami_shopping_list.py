@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
 Nami: Saturday shopping-list manager.
-Uses ld.discovery.search to find options, then applies the ±30% / expiry rules
-and upserts into options_shopping_list.
+
+For each tracked underlying:
+1. Use Chain to get option constituents.
+2. Pull EXPIR_DATE and STRIKE_PRC.
+3. Keep expiries ≤ 6 months, plus nearest ~1y and ~2y.
+4. Keep strikes within ±30% of last close.
+5. Upsert into options_shopping_list.
 """
 import sys
 from datetime import date, timedelta
@@ -11,8 +16,6 @@ from pathlib import Path
 import pandas as pd
 import psycopg
 import lseg.data as ld
-
-sys.path.insert(0, str(Path(__file__).parent))
 
 ROBIN_HOST = "192.168.1.202"
 ROBIN_PORT = 5432
@@ -73,69 +76,25 @@ def last_close(conn, underlying: str) -> float | None:
         return float(row[0]) if row else None
 
 
-def _search(underlying: str, filt: str, top: int = 2000) -> list[dict]:
-    df = ld.discovery.search(
-        view=ld.discovery.Views.SEARCH_ALL,
-        top=top,
-        filter=filt,
-        select="ExpiryDate,StrikePrice,CallPutOption,RIC",
-    )
-    if df is None or df.empty:
-        return []
-    rows = []
-    for _, r in df.iterrows():
-        try:
-            rows.append({
-                "underlying": underlying,
-                "expiry": pd.to_datetime(r["ExpiryDate"]).date(),
-                "strike": float(r["StrikePrice"]),
-                "right": str(r.get("CallPutOption", "")),
-                "ric": r.get("RIC"),
-            })
-        except Exception:
-            continue
-    return rows
+def chain_ric(underlying: str) -> str:
+    """OPRA chain RIC: 0#<ROOT>*.U"""
+    root = underlying.split(".")[0]
+    return f"0#{root}*.U"
 
 
-def discover_chain(underlying: str, today: date, last_close: float) -> list[dict]:
-    """Three small searches: ≤6 months ±30%, nearest ~1y, nearest ~2y."""
-    lo = last_close * 0.70
-    hi = last_close * 1.30
-    six_mo = (today + timedelta(days=183)).isoformat()
-    base = (
-        f"SearchAllCategoryv2 eq 'Options' and "
-        f"UnderlyingQuoteRIC eq '{underlying}' and "
-        f"StrikePrice ge {lo} and StrikePrice le {hi}"
-    )
-    rows = _search(
-        underlying,
-        base + f" and ExpiryDate ge {today.isoformat()} and ExpiryDate le {six_mo}",
-    )
-    for days in (365, 730):
-        target = (today + timedelta(days=days)).isoformat()
-        extra = _search(underlying, base + f" and ExpiryDate ge {target}", top=100)
-        if extra:
-            soonest = min(r["expiry"] for r in extra)
-            rows.extend(r for r in extra if r["expiry"] == soonest)
-    seen = set()
-    out = []
-    for r in rows:
-        key = (r["expiry"], r["strike"])
-        if key not in seen:
-            seen.add(key)
-            out.append(r)
-    return out
-
-
-def upsert_list(conn, rows: list[dict]):
-    with conn.cursor() as cur:
-        for r in rows:
-            cur.execute("""
-                INSERT INTO options_shopping_list (underlying, expiry, strike)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (underlying, expiry, strike) DO NOTHING
-            """, (r["underlying"], r["expiry"], r["strike"]))
-    conn.commit()
+def select_expiries(expiries: list[date], today: date) -> list[date]:
+    expiries = sorted(set(e for e in expiries if e >= today))
+    short = [e for e in expiries if e <= today + timedelta(days=183)]
+    def nearest(days: int) -> date | None:
+        target = today + timedelta(days=days)
+        cands = [e for e in expiries if e > today]
+        return min(cands, key=lambda e: abs((e - target).days)) if cands else None
+    out = set(short)
+    for d in (365, 730):
+        n = nearest(d)
+        if n:
+            out.add(n)
+    return sorted(out)
 
 
 def main():
@@ -151,12 +110,41 @@ def main():
                 if lc is None:
                     print(f"  {u}: no last close — skip")
                     continue
-                raw = discover_chain(u, today, lc)
-                if not raw:
-                    print(f"  {u}: no chain returned")
+                cric = chain_ric(u)
+                try:
+                    constituents = ld.discovery.Chain(name=cric).constituents
+                except Exception as exc:
+                    print(f"  {u}: chain {cric} failed: {exc}")
                     continue
-                upsert_list(conn, raw)
-                print(f"  {u}: {len(raw)} on list (close={lc:.2f})")
+                if not constituents:
+                    print(f"  {u}: empty chain")
+                    continue
+                # Pull expiry and strike
+                df = ld.get_data(
+                    universe=constituents[:2000],  # safety cap
+                    fields=["EXPIR_DATE", "STRIKE_PRC"],
+                )
+                if df is None or df.empty:
+                    print(f"  {u}: no chain data")
+                    continue
+                df = df.dropna(subset=["EXPIR_DATE", "STRIKE_PRC"])
+                df["expiry"] = pd.to_datetime(df["EXPIR_DATE"]).dt.date
+                df["strike"] = pd.to_numeric(df["STRIKE_PRC"], errors="coerce")
+                df = df.dropna(subset=["strike"])
+                wanted = select_expiries(df["expiry"].tolist(), today)
+                lo, hi = lc * 0.70, lc * 1.30
+                keep = df[df["expiry"].isin(wanted) & df["strike"].between(lo, hi)]
+                # Upsert unique (expiry, strike)
+                pairs = keep[["expiry", "strike"]].drop_duplicates()
+                with conn.cursor() as cur:
+                    for _, r in pairs.iterrows():
+                        cur.execute("""
+                            INSERT INTO options_shopping_list (underlying, expiry, strike)
+                            VALUES (%s, %s, %s)
+                            ON CONFLICT (underlying, expiry, strike) DO NOTHING
+                        """, (u, r["expiry"], float(r["strike"])))
+                conn.commit()
+                print(f"  {u}: {len(pairs)} contracts (close={lc:.2f}, chain={cric})")
             # Cleanup completed
             with conn.cursor() as cur:
                 cur.execute("""
