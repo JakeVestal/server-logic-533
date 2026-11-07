@@ -168,11 +168,20 @@ def main():
                 end = (datetime.now(est) - timedelta(days=1)).strftime("%Y-%m-%d")
                 start = (datetime.now(est) - timedelta(days=LOOKBACK_DAYS + 2)).strftime("%Y-%m-%d")
                 print(f"  fetching {start} → {end}")
-                hist = ld.get_data(
-                    universe=work["ric"].tolist(),
-                    fields=FIELDS,
-                    parameters={"SDate": start, "EDate": end, "Frq": "D"},
-                )
+                hist = None
+                for attempt in range(1, 4):
+                    try:
+                        hist = ld.get_data(
+                            universe=work["ric"].tolist(),
+                            fields=FIELDS,
+                            parameters={"SDate": start, "EDate": end, "Frq": "D"},
+                        )
+                        break
+                    except Exception as exc:
+                        print(f"  attempt {attempt} failed: {exc}")
+                        if attempt == 3:
+                            raise
+                        time.sleep(10)
                 # Write CSV
                 n = len(list(DUMP_DIR.glob("options-seed-*.csv"))) + 1
                 out = DUMP_DIR / f"options-seed-{n}.csv"
