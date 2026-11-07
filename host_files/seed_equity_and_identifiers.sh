@@ -64,9 +64,14 @@ if (( ${#rics[@]} == 0 )); then
   exit 2
 fi
 
-batch_size=5
+# Stay under ~3000 rows per call. 365 calendar days is a safe upper bound
+# on daily bars for a 1-year lookback.
+rows_per_ric=365
+max_rows=3000
+batch_size=$(( max_rows / rows_per_ric ))
+if (( batch_size < 1 )); then batch_size=1; fi
 total=${#rics[@]}
-echo "Seeding $total RIC(s) in batches of $batch_size"
+echo "Seeding $total RIC(s) in batches of $batch_size (≤${max_rows} rows/call)"
 
 i=0
 while (( i < total )); do

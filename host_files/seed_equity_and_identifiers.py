@@ -142,16 +142,27 @@ def seed_equity_and_identifiers(
             "Number of Block Trades": "number_of_block_trades",
         }
 
-        hist_raw = ld.get_data(
-            universe=rics,
-            fields=hist_fields,
-            parameters={
-                "SDate": start_date,
-                "EDate": end_date,
-                "Frq": "D",
-                "Adjusted": "1",
-            },
-        )
+        print(f"Historical request: {len(rics)} RIC(s), {start_date} → {end_date}")
+        hist_raw = None
+        for attempt in range(1, 4):
+            try:
+                hist_raw = ld.get_data(
+                    universe=rics,
+                    fields=hist_fields,
+                    parameters={
+                        "SDate": start_date,
+                        "EDate": end_date,
+                        "Frq": "D",
+                        "Adjusted": "1",
+                    },
+                )
+                break
+            except Exception as exc:
+                print(f"  attempt {attempt} failed: {exc}")
+                if attempt == 3:
+                    raise
+                import time
+                time.sleep(5)
         hist_df = hist_raw.rename(columns={k: v for k, v in hist_rename.items() if k in hist_raw.columns})
 
         date_col = next((c for c in ("Date", "Price Close Date", "TR.PriceClose.date") if c in hist_df.columns), None)

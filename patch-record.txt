@@ -66,3 +66,4 @@
 533serverlogic-079-loader-no-skip (1).patch
 533serverlogic-081-yesterday-and-dup-view.patch
 533serverlogic-082-move-only-if-written.patch
+533serverlogic-083-retry-and-dynamic-batch.patch
