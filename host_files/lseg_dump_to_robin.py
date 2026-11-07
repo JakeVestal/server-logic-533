@@ -221,7 +221,8 @@ def main():
     # Identifiers first so instruments exist before bars are loaded
     id_files = sorted(DUMP_DIR.glob("identifiers-seed-*.csv"))
     eq_files = sorted(DUMP_DIR.glob("equity-seed-*.csv"))
-    files = id_files + eq_files
+    opt_files = sorted(DUMP_DIR.glob("options-seed-*.csv"))
+    files = id_files + eq_files + opt_files
     if not files:
         print("No seed CSVs found")
         return 0

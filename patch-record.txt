@@ -79,3 +79,4 @@
 533serverlogic-093-seeder-no-param.patch
 533serverlogic-094-seeder-fstring.patch
 533serverlogic-095-seeder-retry.patch
+533serverlogic-096-loader-include-options.patch
