@@ -81,3 +81,5 @@
 533serverlogic-095-seeder-retry.patch
 533serverlogic-096-loader-include-options.patch
 533serverlogic-098-loader-drop-unwritable.patch
+533serverlogic-099-move-if-wrote.patch
+533serverlogic-100-nami-filtered-search.patch

@@ -13,7 +13,6 @@ import psycopg
 import lseg.data as ld
 
 sys.path.insert(0, str(Path(__file__).parent))
-from shopping_list_rules import filter_chain
 
 ROBIN_HOST = "192.168.1.202"
 ROBIN_PORT = 5432
@@ -74,18 +73,10 @@ def last_close(conn, underlying: str) -> float | None:
         return float(row[0]) if row else None
 
 
-def discover_chain(underlying: str, today: date) -> list[dict]:
-    """Return raw chain rows via discovery.search."""
-    end = today + timedelta(days=800)
-    filt = (
-        f"SearchAllCategoryv2 eq 'Options' and "
-        f"UnderlyingQuoteRIC eq '{underlying}' and "
-        f"ExpiryDate ge {today.isoformat()} and "
-        f"ExpiryDate le {end.isoformat()}"
-    )
+def _search(underlying: str, filt: str, top: int = 2000) -> list[dict]:
     df = ld.discovery.search(
         view=ld.discovery.Views.SEARCH_ALL,
-        top=5000,
+        top=top,
         filter=filt,
         select="ExpiryDate,StrikePrice,CallPutOption,RIC",
     )
@@ -104,6 +95,36 @@ def discover_chain(underlying: str, today: date) -> list[dict]:
         except Exception:
             continue
     return rows
+
+
+def discover_chain(underlying: str, today: date, last_close: float) -> list[dict]:
+    """Three small searches: ≤6 months ±30%, nearest ~1y, nearest ~2y."""
+    lo = last_close * 0.70
+    hi = last_close * 1.30
+    six_mo = (today + timedelta(days=183)).isoformat()
+    base = (
+        f"SearchAllCategoryv2 eq 'Options' and "
+        f"UnderlyingQuoteRIC eq '{underlying}' and "
+        f"StrikePrice ge {lo} and StrikePrice le {hi}"
+    )
+    rows = _search(
+        underlying,
+        base + f" and ExpiryDate ge {today.isoformat()} and ExpiryDate le {six_mo}",
+    )
+    for days in (365, 730):
+        target = (today + timedelta(days=days)).isoformat()
+        extra = _search(underlying, base + f" and ExpiryDate ge {target}", top=100)
+        if extra:
+            soonest = min(r["expiry"] for r in extra)
+            rows.extend(r for r in extra if r["expiry"] == soonest)
+    seen = set()
+    out = []
+    for r in rows:
+        key = (r["expiry"], r["strike"])
+        if key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
 
 
 def upsert_list(conn, rows: list[dict]):
@@ -130,13 +151,12 @@ def main():
                 if lc is None:
                     print(f"  {u}: no last close — skip")
                     continue
-                raw = discover_chain(u, today)
+                raw = discover_chain(u, today, lc)
                 if not raw:
                     print(f"  {u}: no chain returned")
                     continue
-                filtered = filter_chain(raw, lc, today)
-                upsert_list(conn, filtered)
-                print(f"  {u}: {len(raw)} raw → {len(filtered)} on list (close={lc:.2f})")
+                upsert_list(conn, raw)
+                print(f"  {u}: {len(raw)} on list (close={lc:.2f})")
             # Cleanup completed
             with conn.cursor() as cur:
                 cur.execute("""

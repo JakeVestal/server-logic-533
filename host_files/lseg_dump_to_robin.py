@@ -247,11 +247,12 @@ def main():
                 print(f"  {n} option bars")
             else:
                 continue
-            # Move only if every row in the file was written
-            if n == len(df):
+            # Move if we wrote rows and did not raise.
+            # Unwritable rows are dropped and logged inside the upsert.
+            if n > 0:
                 f.rename(PROCESSED / f.name)
             else:
-                print(f"  {f.name}: wrote {n}/{len(df)} rows — leaving in place")
+                print(f"  {f.name}: nothing written — leaving in place")
     return 0
 
 
