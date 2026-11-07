@@ -119,14 +119,21 @@ def main():
                 if not constituents:
                     print(f"  {u}: empty chain")
                     continue
-                # Pull expiry and strike
-                df = ld.get_data(
-                    universe=constituents[:2000],  # safety cap
-                    fields=["EXPIR_DATE", "STRIKE_PRC"],
-                )
-                if df is None or df.empty:
+                # Pull expiry and strike in chunks so we see the full chain
+                # without exceeding per-call row guidance.
+                chunks = []
+                step = 400
+                for i in range(0, len(constituents), step):
+                    part = ld.get_data(
+                        universe=constituents[i:i+step],
+                        fields=["EXPIR_DATE", "STRIKE_PRC"],
+                    )
+                    if part is not None and not part.empty:
+                        chunks.append(part)
+                if not chunks:
                     print(f"  {u}: no chain data")
                     continue
+                df = pd.concat(chunks, ignore_index=True)
                 df = df.dropna(subset=["EXPIR_DATE", "STRIKE_PRC"])
                 df["expiry"] = pd.to_datetime(df["EXPIR_DATE"]).dt.date
                 df["strike"] = pd.to_numeric(df["STRIKE_PRC"], errors="coerce")
