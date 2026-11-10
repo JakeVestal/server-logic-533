@@ -36,35 +36,94 @@ def open_lseg_session() -> None:
     print("LSEG platform session opened")
 
 
-def get_spot(ric: str) -> float:
-    """Fetch a usable last/close price, trying several common fields."""
-    candidates = ["TRDPRC_1", "CF_LAST", "BID", "ASK", "HST_CLOSE", "CF_CLOSE"]
-    print(f"Fetching spot for {ric} with fields {candidates}...")
-    spot_df = ld.get_data(ric, candidates)
-    print("Spot response columns:", list(spot_df.columns))
-    print("Spot response head:\n", spot_df.head().to_string())
-
-    # Prefer the first candidate that actually has a non-null numeric value
+def _first_numeric(df: pd.DataFrame, candidates: list[str]) -> float | None:
+    """Return the first usable numeric value from the candidate columns."""
+    if df is None or df.empty:
+        return None
     for field in candidates:
-        if field in spot_df.columns:
-            series = pd.to_numeric(spot_df[field], errors="coerce").dropna()
+        if field in df.columns:
+            series = pd.to_numeric(df[field], errors="coerce").dropna()
             if not series.empty:
-                spot = float(series.iloc[0])
-                print(f"Spot ({field}): {spot:.2f}")
-                return spot
-
-    # Fallback: any non-Instrument column with a number
-    for col in spot_df.columns:
+                return float(series.iloc[0])
+    # any non-Instrument numeric column
+    for col in df.columns:
         if col == "Instrument":
             continue
-        series = pd.to_numeric(spot_df[col], errors="coerce").dropna()
+        series = pd.to_numeric(df[col], errors="coerce").dropna()
         if not series.empty:
-            spot = float(series.iloc[0])
-            print(f"Spot (fallback {col}): {spot:.2f}")
+            return float(series.iloc[0])
+    return None
+
+
+def get_spot(ric: str = "AAPL.O") -> float:
+    """
+    Fetch a usable last/close price.
+
+    Platform sessions often lack real-time entitlements. When that happens
+    ld.get_data on TRDPRC_1 / BID / ASK returns an empty DataFrame.
+    We therefore try several fallbacks.
+    """
+    realtime_fields = ["TRDPRC_1", "CF_LAST", "BID", "ASK", "HST_CLOSE", "CF_CLOSE"]
+    ref_fields = ["TR.PriceClose", "TR.CLOSEPRICE", "TR.PriceClose.date"]
+
+    # 1. Real-time snapshot on the normal RIC
+    print(f"Trying real-time snapshot for {ric}...")
+    try:
+        spot_df = ld.get_data(ric, realtime_fields)
+        print("  columns:", list(spot_df.columns), "shape:", spot_df.shape)
+        spot = _first_numeric(spot_df, realtime_fields)
+        if spot is not None:
+            print(f"Spot (realtime {ric}): {spot:.2f}")
             return spot
+    except Exception as e:
+        print(f"  realtime failed: {e}")
+
+    # 2. Delayed RIC (prefix /)
+    delayed = f"/{ric}"
+    print(f"Trying delayed RIC {delayed}...")
+    try:
+        spot_df = ld.get_data(delayed, realtime_fields)
+        print("  columns:", list(spot_df.columns), "shape:", spot_df.shape)
+        spot = _first_numeric(spot_df, realtime_fields)
+        if spot is not None:
+            print(f"Spot (delayed {delayed}): {spot:.2f}")
+            return spot
+    except Exception as e:
+        print(f"  delayed failed: {e}")
+
+    # 3. get_history (daily, last few bars) — often works without real-time entitlement
+    print(f"Trying ld.get_history for {ric}...")
+    try:
+        hist = ld.get_history(
+            ric,
+            interval="1D",
+            count=5,
+        )
+        print("  columns:", list(hist.columns), "shape:", hist.shape)
+        print(hist.tail(2).to_string())
+        spot = _first_numeric(hist, ["TRDPRC_1", "CLOSE", "Close", "Price"])
+        if spot is not None:
+            print(f"Spot (history {ric}): {spot:.2f}")
+            return spot
+    except Exception as e:
+        print(f"  get_history failed: {e}")
+
+    # 4. Reference / fundamental close
+    print(f"Trying reference fields for {ric}...")
+    try:
+        spot_df = ld.get_data(ric, ref_fields)
+        print("  columns:", list(spot_df.columns), "shape:", spot_df.shape)
+        print(spot_df.head().to_string())
+        spot = _first_numeric(spot_df, ref_fields)
+        if spot is not None:
+            print(f"Spot (reference {ric}): {spot:.2f}")
+            return spot
+    except Exception as e:
+        print(f"  reference failed: {e}")
 
     raise RuntimeError(
-        f"Could not extract a spot price for {ric}. Columns: {list(spot_df.columns)}"
+        f"Could not extract a spot price for {ric} "
+        "(tried realtime, delayed RIC, get_history, and TR.PriceClose)."
     )
 
 
