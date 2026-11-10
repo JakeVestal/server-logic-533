@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Duke 533 — Options OI Clusters</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; background-color: #050b1c; }
+    .page {
+      background-color: #050b1c;
+      color: #e8eefc;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+      margin: 0 auto;
+      max-width: 960px;
+      border: 1px solid #d4a017;
+    }
+    .hero {
+      background-color: #061433;
+      border-bottom: 2px solid #d4a017;
+      padding: 26px 28px 22px;
+    }
+    .eyebrow {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 11px;
+      color: #d4a017;
+      margin: 0 0 8px 0;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 500;
+      color: #7cff55;
+      line-height: 1.25;
+      margin: 0;
+    }
+    h1 span { color: #e8a317; }
+    .body { padding: 18px 28px 36px; }
+    h2 {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 18px;
+      font-weight: 500;
+      color: #d4a017;
+      margin: 28px 0 10px 0;
+    }
+    p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
+    ol, ul { margin: 0 0 14px 1.25em; padding: 0; }
+    li { margin: 0 0 8px 0; color: #d7e3fb; font-size: 15.5px; }
+    code, pre {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+    }
+    code { color: #7cff55; font-size: 0.92em; }
+    pre {
+      background-color: #061433;
+      border: 1px solid #1a3a66;
+      color: #e8eefc;
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 14px 16px;
+      margin: 0 0 14px 0;
+      overflow-x: auto;
+    }
+    pre code { color: inherit; font-size: inherit; }
+    a { color: #3ecbff; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; margin: 0 0 14px 0; }
+    th {
+      text-align: left;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #d4a017;
+      padding: 8px 12px 8px 0;
+      border-bottom: 1px solid #d4a017;
+    }
+    td {
+      vertical-align: top;
+      padding: 10px 12px 10px 0;
+      border-bottom: 1px solid #1a2a4a;
+      font-size: 14.5px;
+      color: #e8eefc;
+    }
+    td.k {
+      width: 34%;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      color: #3ecbff;
+      font-size: 13px;
+    }
+    .note {
+      border-left: 3px solid #d4a017;
+      padding: 10px 14px;
+      background-color: #120e06;
+      color: #f0e2b8;
+      font-size: 14.5px;
+      margin: 0 0 14px 0;
+    }
+    iframe {
+      width: 100%;
+      border: 1px solid #1a3a66;
+      background: #061433;
+      margin: 0 0 18px 0;
+    }
+    .plot-label {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 12px;
+      color: #d4a017;
+      margin: 0 0 4px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">server-logic-533 · options microstructure</p>
+    <h1>Open interest <span>clusters</span></h1>
+  </header>
+  <div class="body">
+    <p>
+      Open interest (OI) records the number of option contracts that remain open at a given strike and expiry. Clusters of OI at particular strikes are watched as reference levels. They are not instantaneous order flow, and they are not hard support or resistance. Their relevance comes from the scale of delta-hedging that market makers (dealers) may need to perform when price approaches those strikes, especially near expiration.
+    </p>
+    <p class="note">
+      Dealer inventory is private. Every statement about “dealers long calls / short puts” is a modeling assumption, not an observed fact. Different platforms apply different sign conventions and filters. Treat published walls as estimates.
+    </p>
+
+    <h2>01 // Identifying clusters</h2>
+    <p>
+      Rank strikes by open interest (or by estimated gamma exposure). The largest concentrations above spot are conventionally called call walls; the largest concentrations below spot are called put walls. Round numbers and recent highs/lows attract the most activity.
+    </p>
+    <table>
+      <thead><tr><th>Label</th><th>Typical definition</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="k">Call wall</td>
+          <td>Strike above spot with the largest call OI or the largest positive modeled gamma contribution under the usual assumption that dealers are net long those calls.</td>
+        </tr>
+        <tr>
+          <td class="k">Put wall</td>
+          <td>Strike below spot with the largest put OI or the largest negative modeled gamma contribution under the usual assumption that dealers are net short those puts.</td>
+        </tr>
+        <tr>
+          <td class="k">Gamma flip</td>
+          <td>Price at which aggregate modeled dealer gamma changes sign. Above it, hedging is more often dampening; below it, more often amplifying.</td>
+        </tr>
+        <tr>
+          <td class="k">Max pain</td>
+          <td>Strike that minimizes the total intrinsic value that would be paid to option holders at expiration. Computed from the entire chain, not from a single strike’s OI.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Practical filters: prefer near-dated expirations (gamma is largest), weight by gamma rather than raw OI when possible, and ignore stale clusters whose OI has not changed for weeks. A cluster built months ago may already have been rolled or closed.
+    </p>
+
+    <h2>02 // Dealer gamma and hedging direction</h2>
+    <p>
+      Dealers typically seek to stay approximately delta-neutral. Gamma determines how that hedge changes with price.
+    </p>
+    <ul>
+      <li><strong>Positive gamma</strong> (dealers net long options): sell into rises, buy into dips. Dampens volatility and favors mean-reversion or pinning near heavy strikes.</li>
+      <li><strong>Negative gamma</strong> (dealers net short options): buy into rises, sell into dips. Amplifies moves.</li>
+    </ul>
+    <p>
+      Standard Greeks:
+    </p>
+    <ul>
+      <li>Long call / long put → positive gamma.</li>
+      <li>Short call / short put → negative gamma.</li>
+      <li>Short put delta is positive and becomes more positive as spot falls. Hedging a short put therefore requires selling stock as price declines.</li>
+    </ul>
+    <p>
+      The popular claim that a heavy put strike forces dealers to buy the underlying on the way down is the reverse of the short-put math. Local negative gamma at a put wall amplifies declines. Any observed support near a put wall is conditional on the broader regime (price still above the gamma flip), on position closing or rolling, on vanna/vol effects, or on other non-hedging flows. It is not a mechanical buying floor created by short-put delta.
+    </p>
+    <p>
+      For calls the usual assumption (dealers long the calls written by customers) produces selling into rises near the call wall—resistance that can also act as a magnet. If dealers are instead short the calls, the flow reverses and a break can accelerate.
+    </p>
+
+    <h2>03 // What the evidence supports</h2>
+    <table>
+      <thead><tr><th>Claim</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="k">Expiration-day clustering at strikes</td>
+          <td>Documented. Ni, Pearson & Poteshman (Journal of Financial Economics, 2005) show that optionable stocks close nearer to strikes on expiration days than non-optionable stocks, with an estimated average return distortion of at least ~16.5 bp, partly from market-maker hedge rebalancing.</td>
+        </tr>
+        <tr>
+          <td class="k">Max pain as a distinct attractor</td>
+          <td>Weak. Max pain sits near the money by construction because that is where OI concentrates. Apparent convergence is largely explained by ordinary near-the-money clustering and by the expiration effect above. Not a reliable standalone predictor.</td>
+        </tr>
+        <tr>
+          <td class="k">Call/put walls as reliable support or resistance</td>
+          <td>Modest and conditional. Practitioner and independent tests show walls are breached frequently (often 30 %+ within an hour on liquid index products). Effects are stronger near expiration, in high-OI index products, and inside positive-gamma regimes. Single-name effects are weaker. Exogenous news routinely dominates.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Positive-gamma regimes are associated with lower realized volatility; negative-gamma regimes with higher realized volatility and larger directional moves. That regime distinction is more robust than the treatment of any individual wall as a hard level.
+    </p>
+
+    <h2>04 // Interpreting a cluster in practice</h2>
+    <ol>
+      <li>Locate the heaviest call and put concentrations relative to spot and to the gamma flip.</li>
+      <li>Note time to expiration. Gamma (and therefore hedging impact) rises sharply as expiry approaches. A cluster in a monthly that expires next week matters more than the same OI in a three-month contract.</li>
+      <li>Check whether the overall book is estimated positive or negative gamma. Inside a positive-gamma regime, heavy strikes are more likely to act as magnets or soft barriers. Inside a negative-gamma regime they are more likely to be broken with acceleration.</li>
+      <li>Treat the level as a zone where hedging flow may be large, not as a line that price must respect. Combine with ordinary technical structure, flow, and the news calendar.</li>
+      <li>Remember that OI is a snapshot. Intraday volume and position changes (especially in 0DTE) are invisible to end-of-day OI.</li>
+    </ol>
+    <p class="note">
+      Macro releases, earnings, and geopolitical events overpower microstructural hedging. A wall that has held for days can break on a single high-velocity move once dealers are forced to chase rather than fade.
+    </p>
+
+    <h2>05 // Maximum pain formula</h2>
+    <p>
+      For a candidate settlement price \(K\), total intrinsic paid to holders is
+    </p>
+<pre><code>P(K) = Σ_i [ max(0, S_i − K) × CallOI_i + max(0, K − S_i) × PutOI_i ]</code></pre>
+    <p>
+      Max pain is the \(K\) that minimizes \(P(K)\). It is a descriptive statistic of the current OI distribution. It is not evidence that writers can or will steer settlement to that strike.
+    </p>
+
+    <h2>06 // Live plots</h2>
+    <p>
+      The figures below are regenerated by <code>generate_oi_plots.py</code> (run as a GitHub Action). They show open-interest heatmaps and a summary of total OI by moneyness. Hover for values. The orange dashed line marks at-the-money.
+    </p>
+    <p class="plot-label">Call open interest heatmap</p>
+    <iframe src="oi-calls.html" height="560" title="Call OI heatmap"></iframe>
+    <p class="plot-label">Put open interest heatmap</p>
+    <iframe src="oi-puts.html" height="560" title="Put OI heatmap"></iframe>
+    <p class="plot-label">Total OI by moneyness (walls)</p>
+    <iframe src="oi-walls.html" height="460" title="OI walls"></iframe>
+    <p>
+      Cluster summary (top cells and wall moneyness) is also written to <code>docs/oi-clusters.csv</code>.
+    </p>
+
+    <h2>07 // Running the plot generator as a GitHub Action</h2>
+    <p>
+      The script reads three secrets. Add them to this repository (Settings → Secrets and variables → Actions):
+    </p>
+    <table>
+      <thead><tr><th>Secret name</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="k">LSEG_APP_KEY</td>
+          <td>Your LSEG / Refinitiv App Key (from the App Key Generator in Workspace or the Developer Portal).</td>
+        </tr>
+        <tr>
+          <td class="k">LSEG_USERNAME</td>
+          <td>Your LSEG platform username.</td>
+        </tr>
+        <tr>
+          <td class="k">LSEG_PASSWORD</td>
+          <td>Your LSEG platform password.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Optional repository variables (or workflow env) control the chain:
+    </p>
+    <ul>
+      <li><code>OI_CHAIN_RIC</code> — default <code>0#AAPL*.U</code></li>
+      <li><code>OI_UNDERLYING_RIC</code> — default <code>AAPL.O</code></li>
+    </ul>
+    <p>
+      A minimal workflow that runs the script and commits the new plots looks like this (place it in <code>.github/workflows/oi-plots.yml</code>):
+    </p>
+<pre><code>name: OI plots
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 13 * * 1-5"
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install lseg-data pandas plotly numpy
+      - run: python generate_oi_plots.py
+        env:
+          LSEG_APP_KEY: ${{ secrets.LSEG_APP_KEY }}
+          LSEG_USERNAME: ${{ secrets.LSEG_USERNAME }}
+          LSEG_PASSWORD: ${{ secrets.LSEG_PASSWORD }}
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update OI cluster plots"
+          file_pattern: docs/oi-*.html docs/oi-clusters.csv</code></pre>
+    <p>
+      After the action commits, GitHub Pages serves the updated HTML files and this page displays them.
+    </p>
+
+    <h2>08 // Summary</h2>
+    <p>
+      Concentrated open interest marks where hedging obligations can become large. Positive gamma dampens moves and can contribute to pinning near heavy strikes, especially on expiration days. Negative gamma amplifies moves. The academic record supports expiration-day clustering at strikes; it does not support treating call walls, put walls, or max pain as reliable mechanical barriers or precise attractors. Use the levels as contextual reference points inside a broader view of regime, expiry, and exogenous drivers.
+    </p>
+  </div>
+</div>
+<script src="site.js"></script>
+</body>
+</html>
