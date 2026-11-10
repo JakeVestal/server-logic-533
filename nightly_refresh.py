@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate Open Interest cluster plots for the nearest AAPL expiry.
+Generate Open Interest cluster plots for several near AAPL expiries.
 
 Uses LSEG discovery search to find real option contracts, fetches recent
-open interest with TR.OPENINTEREST, and writes two interactive Plotly charts
-to docs/ so GitHub Pages can display them.
+open interest with TR.OPENINTEREST, and writes interactive Plotly charts
+to docs/ so GitHub Pages can display them:
+  - 2D grouped bars for the nearest expiry
+  - horizontal top walls for the nearest expiry
+  - 3D scatter across several near expiries (strike × expiry × OI)
 """
 
 import os
@@ -134,7 +137,7 @@ def main() -> None:
         print("Searching options for AAPL.O...")
         raw = ld.discovery.search(
             view=ld.discovery.Views.SEARCH_ALL,
-            top=500,
+            top=800,
             filter="SearchAllCategoryv2 eq 'Options' and UnderlyingQuoteRIC eq 'AAPL.O'",
             select="RIC,StrikePrice,ExpiryDate,CallPutOption",
         )
@@ -145,17 +148,26 @@ def main() -> None:
         df = df.dropna(subset=["StrikePrice"])
         print(f"Real contracts: {len(df)}")
 
-        nearest = df["ExpiryDate"].min()
-        near = df[df["ExpiryDate"] == nearest].copy()
+        # Take the soonest N unique expiries (typically weeklies + near monthlies)
+        n_expiries = 5
+        unique_expiries = sorted(df["ExpiryDate"].unique())
+        selected_expiries = unique_expiries[:n_expiries]
+        multi = df[df["ExpiryDate"].isin(selected_expiries)].copy()
+        print(f"Selected expiries: {[e.date() for e in selected_expiries]} ({len(multi)} contracts)")
+
+        nearest = selected_expiries[0]
+        near = multi[multi["ExpiryDate"] == nearest].copy()
         print(f"Nearest expiry: {nearest.date()} ({len(near)} contracts)")
 
         spot = get_spot("AAPL.O")
 
         lo, hi = spot * 0.85, spot * 1.15
-        near = near[(near["StrikePrice"] >= lo) & (near["StrikePrice"] <= hi)]
-        print(f"Contracts inside \u00b115%: {len(near)}")
+        multi = multi[(multi["StrikePrice"] >= lo) & (multi["StrikePrice"] <= hi)]
+        near = multi[multi["ExpiryDate"] == nearest].copy()
+        print(f"Contracts inside \u00b115% across selected expiries: {len(multi)}")
+        print(f"Nearest-expiry contracts inside window: {len(near)}")
 
-        if near.empty:
+        if multi.empty:
             sys.exit("No contracts in strike window")
 
         end = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -163,24 +175,25 @@ def main() -> None:
         print(f"Fetching OI {start} \u2192 {end}")
 
         oi = ld.get_data(
-            universe=near["RIC"].tolist(),
+            universe=multi["RIC"].tolist(),
             fields=["TR.OPENINTEREST"],
             parameters={"SDate": start, "EDate": end, "Frq": "D"},
         )
         oi = oi.dropna(subset=["Open Interest"])
         latest = oi.groupby("Instrument", as_index=False).tail(1)
 
-        merged = near.merge(latest, left_on="RIC", right_on="Instrument", how="inner")
-        merged = merged.sort_values("StrikePrice")
+        merged = multi.merge(latest, left_on="RIC", right_on="Instrument", how="inner")
+        merged = merged.sort_values(["ExpiryDate", "StrikePrice"])
         print(f"Contracts with OI: {len(merged)}")
 
         if merged.empty:
             sys.exit("No open interest data returned")
 
-        # Plot 1: OI by strike
+        # ----- Plot 1: OI by strike (nearest expiry only) -----
+        nearest_merged = merged[merged["ExpiryDate"] == nearest].copy()
         fig1 = go.Figure()
         for side, color in [("Call", "#3ecbff"), ("Put", "#e8a317")]:
-            sub = merged[merged["CallPutOption"] == side]
+            sub = nearest_merged[nearest_merged["CallPutOption"] == side]
             fig1.add_trace(go.Bar(
                 x=sub["StrikePrice"],
                 y=sub["Open Interest"],
@@ -197,10 +210,10 @@ def main() -> None:
         )
         fig1.write_html("docs/oi-by-strike.html", include_plotlyjs="cdn")
 
-        # Plot 2: top walls
+        # ----- Plot 2: top walls (nearest expiry) -----
         walls = []
         for side in ("Call", "Put"):
-            top = (merged[merged["CallPutOption"] == side]
+            top = (nearest_merged[nearest_merged["CallPutOption"] == side]
                    .nlargest(5, "Open Interest")[["StrikePrice", "Open Interest"]])
             top["side"] = side
             walls.append(top)
@@ -221,7 +234,40 @@ def main() -> None:
         )
         fig2.write_html("docs/oi-walls.html", include_plotlyjs="cdn")
 
-        print("Wrote docs/oi-by-strike.html and docs/oi-walls.html")
+        # ----- Plot 3: 3D scatter across selected expiries -----
+        # x = strike, y = expiry (categorical string), z = OI
+        fig3 = go.Figure()
+        for side, color in [("Call", "#3ecbff"), ("Put", "#e8a317")]:
+            sub = merged[merged["CallPutOption"] == side]
+            fig3.add_trace(go.Scatter3d(
+                x=sub["StrikePrice"],
+                y=sub["ExpiryDate"].dt.strftime("%Y-%m-%d"),
+                z=sub["Open Interest"],
+                mode="markers",
+                name=side,
+                marker=dict(
+                    size=4,
+                    color=color,
+                    opacity=0.85,
+                ),
+                text=sub["RIC"],
+                hovertemplate="Strike %{x}<br>Expiry %{y}<br>OI %{z}<br>%{text}<extra></extra>",
+            ))
+        fig3.update_layout(
+            title=f"AAPL OI clusters across near expiries (spot {spot:.2f})",
+            scene=dict(
+                xaxis_title="Strike",
+                yaxis_title="Expiry",
+                zaxis_title="Open Interest",
+                yaxis=dict(type="category"),
+            ),
+            template="plotly_dark",
+            height=640,
+            margin=dict(l=0, r=0, b=0, t=40),
+        )
+        fig3.write_html("docs/oi-3d.html", include_plotlyjs="cdn")
+
+        print("Wrote docs/oi-by-strike.html, docs/oi-walls.html, and docs/oi-3d.html")
     finally:
         try:
             session.close()
