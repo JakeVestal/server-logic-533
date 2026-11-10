@@ -87,3 +87,4 @@
 533serverlogic-103-nami-page-chain.patch
 533serverlogic-104.patch
 533serverlogic-105.patch
+533serverlogic-106.patch

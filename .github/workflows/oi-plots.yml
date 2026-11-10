@@ -39,5 +39,5 @@ jobs:
         with:
           commit_message: "Update OI cluster plots"
           file_pattern: |
-            docs/oi-*.html
-            docs/oi-clusters.csv
+            docs/lseg-test.html
+            docs/lseg-test.csv
