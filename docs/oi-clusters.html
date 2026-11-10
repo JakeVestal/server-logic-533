@@ -217,7 +217,7 @@
 
     <h2>06 // Current OI clusters (AAPL)</h2>
     <p>
-      The charts below are produced by <code>generate_oi_plots.py</code> when the GitHub Action runs. It uses discovery search to find real option contracts for the nearest expiry, fetches recent open interest with <code>TR.OPENINTEREST</code>, and writes interactive Plotly charts.
+      The charts below are produced by <code>nightly_refresh.py</code> when the GitHub Action runs. It uses discovery search to find real option contracts for the nearest expiry, fetches recent open interest with <code>TR.OPENINTEREST</code>, and writes interactive Plotly charts.
     </p>
     <p class="plot-label">Open interest by strike (nearest expiry)</p>
     <iframe src="oi-by-strike.html" height="520" title="OI by strike"></iframe>
@@ -258,11 +258,11 @@
     <p>
       A minimal workflow that runs the script and commits the new plots looks like this (place it in <code>.github/workflows/oi-plots.yml</code>):
     </p>
-<pre><code>name: OI plots
+<pre><code>name: Nightly OI refresh
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 13 * * 1-5"
+    - cron: "0 3 * * *"   # 03:00 UTC ≈ 10pm EST
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -272,7 +272,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install lseg-data pandas plotly numpy
-      - run: python generate_oi_plots.py
+      - run: python nightly_refresh.py
         env:
           LSEG_APP_KEY: ${{ secrets.LSEG_APP_KEY }}
           LSEG_USERNAME: ${{ secrets.LSEG_USERNAME }}
@@ -280,9 +280,13 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update OI cluster plots"
-          file_pattern: docs/oi-*.html docs/oi-clusters.csv</code></pre>
+          file_pattern: docs/oi-*.html docs/oi-clusters.csv
+      - name: Trigger Pages deploy
+        run: gh workflow run "Deploy to GitHub Pages" --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}</code></pre>
     <p>
-      After the action commits, GitHub Pages serves the updated HTML files and this page displays them.
+      After the action commits the plots and triggers the Pages workflow, GitHub Pages serves the updated HTML files and this page displays them.
     </p>
 
     <h2>08 // Summary</h2>

@@ -1,9 +1,10 @@
-name: Generate OI plots
+name: Nightly OI refresh
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 13 * * 1-5"
+    # 03:00 UTC = 10pm EST / 11pm EDT. Runs every night.
+    - cron: "0 3 * * *"
 
 concurrency:
   group: oi-plots
@@ -11,6 +12,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   generate:
@@ -32,7 +34,7 @@ jobs:
           LSEG_APP_KEY: ${{ secrets.LSEG_APP_KEY }}
           LSEG_USERNAME: ${{ secrets.LSEG_USERNAME }}
           LSEG_PASSWORD: ${{ secrets.LSEG_PASSWORD }}
-        run: python generate_oi_plots.py
+        run: python nightly_refresh.py
 
       - name: Commit and push plots
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -41,3 +43,9 @@ jobs:
           file_pattern: |
             docs/oi-*.html
             docs/oi-clusters.csv
+
+      - name: Trigger GitHub Pages deploy
+        if: success()
+        run: gh workflow run "Deploy to GitHub Pages" --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
