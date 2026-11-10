@@ -146,12 +146,12 @@
       </tbody>
     </table>
     <p>
-      Practical filters: prefer near-dated expirations (gamma is largest), weight by gamma rather than raw OI when possible, and ignore stale clusters whose OI has not changed for weeks. A cluster built months ago may already have been rolled or closed.
+      Practical filters: prefer near-dated expirations (gamma is largest), weight by gamma rather than raw OI when possible, and ignore stale clusters whose OI has not changed for weeks. A cluster built months ago may already have been rolled or closed. Prefer <em>changes</em> in open interest (ΔOI) over static levels; fresh positioning that still needs to be hedged is more informative than a large but unchanged book.
     </p>
 
     <h2>02 // Dealer gamma and hedging direction</h2>
     <p>
-      Dealers typically seek to stay approximately delta-neutral. Gamma determines how that hedge changes with price.
+      Dealers typically seek to stay approximately delta-neutral. Gamma determines how that hedge changes with price. Gamma itself scales roughly with \(1/\sqrt{T}\), so the same OI number is a far larger hedging problem at 3 DTE than at 45 DTE.
     </p>
     <ul>
       <li><strong>Positive gamma</strong> (dealers net long options): sell into rises, buy into dips. Dampens volatility and favors mean-reversion or pinning near heavy strikes.</li>
@@ -169,7 +169,7 @@
       The popular claim that a heavy put strike forces dealers to buy the underlying on the way down is the reverse of the short-put math. Local negative gamma at a put wall amplifies declines. Any observed support near a put wall is conditional on the broader regime (price still above the gamma flip), on position closing or rolling, on vanna/vol effects, or on other non-hedging flows. It is not a mechanical buying floor created by short-put delta.
     </p>
     <p>
-      For calls the usual assumption (dealers long the calls written by customers) produces selling into rises near the call wall—resistance that can also act as a magnet. If dealers are instead short the calls, the flow reverses and a break can accelerate.
+      For calls the usual assumption (dealers long the calls written by customers) produces selling into rises near the call wall—resistance that can also act as a magnet. If dealers are instead short the calls, the flow reverses and a break can accelerate. In practice dealers are often net short downside (from selling puts or hedging structured products and vol-selling programs) and closer to flat or long upside; that asymmetry makes put-wall regions more likely to be negative-gamma accelerators on the way down.
     </p>
 
     <h2>03 // What the evidence supports</h2>
@@ -178,7 +178,7 @@
       <tbody>
         <tr>
           <td class="k">Expiration-day clustering at strikes</td>
-          <td>Documented. Ni, Pearson & Poteshman (Journal of Financial Economics, 2005) show that optionable stocks close nearer to strikes on expiration days than non-optionable stocks, with an estimated average return distortion of at least ~16.5 bp, partly from market-maker hedge rebalancing.</td>
+          <td>Documented. Ni, Pearson & Poteshman (Journal of Financial Economics, 2005) show that optionable stocks close nearer to strikes on expiration days than non-optionable stocks, with an estimated average return distortion of at least ~16.5 bp, partly from market-maker hedge rebalancing. The strongest evidence is for <em>expiry-day pinning</em>, not for continuous intraday support/resistance.</td>
         </tr>
         <tr>
           <td class="k">Max pain as a distinct attractor</td>
@@ -186,19 +186,20 @@
         </tr>
         <tr>
           <td class="k">Call/put walls as reliable support or resistance</td>
-          <td>Modest and conditional. Practitioner and independent tests show walls are breached frequently (often 30 %+ within an hour on liquid index products). Effects are stronger near expiration, in high-OI index products, and inside positive-gamma regimes. Single-name effects are weaker. Exogenous news routinely dominates.</td>
+          <td>Modest and conditional. Practitioner and independent tests show walls are breached frequently (often 30 %+ within an hour on liquid index products). Effects are stronger near expiration, in high-OI index products, and inside positive-gamma regimes. Single-name effects are weaker. Exogenous news routinely dominates. Intraday “walls” as durable support/resistance are weaker than the expiry-day clustering literature.</td>
         </tr>
       </tbody>
     </table>
     <p>
-      Positive-gamma regimes are associated with lower realized volatility; negative-gamma regimes with higher realized volatility and larger directional moves. That regime distinction is more robust than the treatment of any individual wall as a hard level.
+      Positive-gamma regimes are associated with lower realized volatility; negative-gamma regimes with higher realized volatility and larger directional moves. That regime distinction is more robust than the treatment of any individual wall as a hard level. In liquid indices a large fraction of gamma can now sit in 0DTE contracts; end-of-day OI snapshots miss most of that activity.
     </p>
 
     <h2>04 // Interpreting a cluster in practice</h2>
     <ol>
       <li>Locate the heaviest call and put concentrations relative to spot and to the gamma flip.</li>
-      <li>Note time to expiration. Gamma (and therefore hedging impact) rises sharply as expiry approaches. A cluster in a monthly that expires next week matters more than the same OI in a three-month contract.</li>
+      <li>Note time to expiration. Gamma (and therefore hedging impact) rises sharply as expiry approaches. A cluster in a monthly that expires next week matters more than the same OI in a three-month contract. The 3D view below makes the near-dated concentration visible.</li>
       <li>Check whether the overall book is estimated positive or negative gamma. Inside a positive-gamma regime, heavy strikes are more likely to act as magnets or soft barriers. Inside a negative-gamma regime they are more likely to be broken with acceleration.</li>
+      <li>Prefer recent changes in open interest (ΔOI over the last 1–3 sessions) to static levels. Fresh positioning still needs to be hedged; a large but unchanged book may already have been rolled or offset.</li>
       <li>Treat the level as a zone where hedging flow may be large, not as a line that price must respect. Combine with ordinary technical structure, flow, and the news calendar.</li>
       <li>Remember that OI is a snapshot. Intraday volume and position changes (especially in 0DTE) are invisible to end-of-day OI.</li>
     </ol>
@@ -217,12 +218,14 @@
 
     <h2>06 // Current OI clusters (AAPL)</h2>
     <p>
-      The charts below are produced by <code>nightly_refresh.py</code> when the GitHub Action runs. It uses discovery search to find real option contracts for the nearest expiry, fetches recent open interest with <code>TR.OPENINTEREST</code>, and writes interactive Plotly charts.
+      The charts below are produced by <code>nightly_refresh.py</code> when the GitHub Action runs. It uses discovery search to find real option contracts for the nearest several expiries, fetches recent open interest with <code>TR.OPENINTEREST</code>, and writes interactive Plotly charts. The first two charts remain focused on the nearest expiry; the third shows how open interest clusters across a few near expiries (third axis = expiry).
     </p>
     <p class="plot-label">Open interest by strike (nearest expiry)</p>
     <iframe src="oi-by-strike.html" height="520" title="OI by strike"></iframe>
-    <p class="plot-label">Largest open-interest strikes</p>
+    <p class="plot-label">Largest open-interest strikes (nearest expiry)</p>
     <iframe src="oi-walls.html" height="460" title="OI walls"></iframe>
+    <p class="plot-label">OI clusters across near expiries (3D scatter: strike × expiry × OI)</p>
+    <iframe src="oi-3d.html" height="680" title="OI 3D scatter"></iframe>
     <p>
       Cluster summary (top cells and wall moneyness) is also written to <code>docs/oi-clusters.csv</code>.
     </p>
@@ -256,42 +259,12 @@
       <li><code>OI_UNDERLYING_RIC</code> — default <code>AAPL.O</code></li>
     </ul>
     <p>
-      A minimal workflow that runs the script and commits the new plots looks like this (place it in <code>.github/workflows/oi-plots.yml</code>):
-    </p>
-<pre><code>name: Nightly OI refresh
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * *"   # 03:00 UTC ≈ 10pm EST
-jobs:
-  generate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install lseg-data pandas plotly numpy
-      - run: python nightly_refresh.py
-        env:
-          LSEG_APP_KEY: ${{ secrets.LSEG_APP_KEY }}
-          LSEG_USERNAME: ${{ secrets.LSEG_USERNAME }}
-          LSEG_PASSWORD: ${{ secrets.LSEG_PASSWORD }}
-      - uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Update OI cluster plots"
-          file_pattern: docs/oi-*.html docs/oi-clusters.csv
-      - name: Trigger Pages deploy
-        run: gh workflow run "Deploy to GitHub Pages" --ref main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}</code></pre>
-    <p>
-      After the action commits the plots and triggers the Pages workflow, GitHub Pages serves the updated HTML files and this page displays them.
+      The nightly workflow runs the script, commits the new plots, and the Pages workflow is configured to start automatically on completion of that workflow (via <code>workflow_run</code>), so the finished files are on <code>main</code> before deployment begins.
     </p>
 
     <h2>08 // Summary</h2>
     <p>
-      Concentrated open interest marks where hedging obligations can become large. Positive gamma dampens moves and can contribute to pinning near heavy strikes, especially on expiration days. Negative gamma amplifies moves. The academic record supports expiration-day clustering at strikes; it does not support treating call walls, put walls, or max pain as reliable mechanical barriers or precise attractors. Use the levels as contextual reference points inside a broader view of regime, expiry, and exogenous drivers.
+      Concentrated open interest marks where hedging obligations can become large. Positive gamma dampens moves and can contribute to pinning near heavy strikes, especially on expiration days. Negative gamma amplifies moves. The academic record supports expiration-day clustering at strikes; it does not support treating call walls, put walls, or max pain as reliable mechanical barriers or precise attractors. Use the levels as contextual reference points inside a broader view of regime, expiry proximity, recent ΔOI, and exogenous drivers. The multi-expiry 3D view makes the concentration of open interest in the nearest contracts visible at a glance.
     </p>
   </div>
 </div>
