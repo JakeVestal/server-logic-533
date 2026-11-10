@@ -36,6 +36,38 @@ def open_lseg_session() -> None:
     print("LSEG platform session opened")
 
 
+def get_spot(ric: str) -> float:
+    """Fetch a usable last/close price, trying several common fields."""
+    candidates = ["TRDPRC_1", "CF_LAST", "BID", "ASK", "HST_CLOSE", "CF_CLOSE"]
+    print(f"Fetching spot for {ric} with fields {candidates}...")
+    spot_df = ld.get_data(ric, candidates)
+    print("Spot response columns:", list(spot_df.columns))
+    print("Spot response head:\n", spot_df.head().to_string())
+
+    # Prefer the first candidate that actually has a non-null numeric value
+    for field in candidates:
+        if field in spot_df.columns:
+            series = pd.to_numeric(spot_df[field], errors="coerce").dropna()
+            if not series.empty:
+                spot = float(series.iloc[0])
+                print(f"Spot ({field}): {spot:.2f}")
+                return spot
+
+    # Fallback: any non-Instrument column with a number
+    for col in spot_df.columns:
+        if col == "Instrument":
+            continue
+        series = pd.to_numeric(spot_df[col], errors="coerce").dropna()
+        if not series.empty:
+            spot = float(series.iloc[0])
+            print(f"Spot (fallback {col}): {spot:.2f}")
+            return spot
+
+    raise RuntimeError(
+        f"Could not extract a spot price for {ric}. Columns: {list(spot_df.columns)}"
+    )
+
+
 def main() -> None:
     open_lseg_session()
 
@@ -57,10 +89,7 @@ def main() -> None:
     near = df[df["ExpiryDate"] == nearest].copy()
     print(f"Nearest expiry: {nearest.date()} ({len(near)} contracts)")
 
-    spot_df = ld.get_data("AAPL.O", ["TRDPRC_1"])
-    spot_col = next(c for c in spot_df.columns if c != "Instrument")
-    spot = float(spot_df[spot_col].iloc[0])
-    print(f"Spot ({spot_col}): {spot:.2f}")
+    spot = get_spot("AAPL.O")
 
     lo, hi = spot * 0.85, spot * 1.15
     near = near[(near["StrikePrice"] >= lo) & (near["StrikePrice"] <= hi)]
