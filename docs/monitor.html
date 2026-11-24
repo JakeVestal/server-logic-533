@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Duke 533 — Strategy Monitoring Methodologies</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    body { margin: 0; background-color: #050b1c; }
+    .page {
+      background-color: #050b1c;
+      color: #e8eefc;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+      margin: 0 auto;
+      max-width: 920px;
+      border: 1px solid #d4a017;
+    }
+    .hero {
+      background-color: #061433;
+      border-bottom: 2px solid #d4a017;
+      padding: 26px 28px 22px;
+    }
+    .eyebrow {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 11px;
+      color: #d4a017;
+      margin: 0 0 8px 0;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 500;
+      color: #7cff55;
+      line-height: 1.25;
+      margin: 0;
+    }
+    h1 span { color: #e8a317; }
+    h2 {
+      font-size: 20px;
+      color: #7cff55;
+      margin: 28px 0 12px 0;
+      border-bottom: 1px solid #1a3a66;
+      padding-bottom: 6px;
+    }
+    h3 {
+      font-size: 16px;
+      color: #e8a317;
+      margin: 20px 0 8px 0;
+    }
+    .body { padding: 18px 28px 28px; }
+    p { margin: 0 0 12px 0; color: #d7e3fb; font-size: 15.5px; }
+    ul, ol { margin: 0 0 16px 1.25em; padding: 0; }
+    li { margin: 0 0 8px 0; color: #d7e3fb; font-size: 15.5px; }
+    code {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      color: #7cff55;
+      font-size: 0.92em;
+      background: #0a1633;
+      padding: 1px 4px;
+    }
+    a { color: #3ecbff; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px 0; font-size: 14px; }
+    th {
+      text-align: left;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: #d4a017;
+      padding: 8px 6px;
+      border-bottom: 1px solid #d4a017;
+      white-space: nowrap;
+    }
+    td {
+      padding: 7px 6px;
+      border-bottom: 1px solid #1a2a4a;
+      color: #e8eefc;
+    }
+    .note {
+      background: #0a1633;
+      border-left: 3px solid #d4a017;
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 14.5px;
+    }
+    .eq { margin: 10px 0; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">server-logic-533 · lecture aid</p>
+    <h1>Live Strategy <span>Monitoring</span></h1>
+  </header>
+  <div class="body">
+    <p>
+      Once a strategy is live, the matched blotter of closed round-trips is the ground truth.
+      The question we keep asking is: <em>given the performance I have observed so far, is the edge still what I expected, or should I halt / reduce / re-evaluate?</em>
+    </p>
+    <p>
+      Below is a shared toy matched blotter for one simple strategy. We will apply four methodologies to the same data so you can see how each produces a go / no-go signal.
+    </p>
+
+    <h2>Toy Matched Blotter</h2>
+    <p>
+      Conventions: <code>entry_cash_flow</code> is positive for a short initiation, negative for a long initiation.
+      <code>exit_cash_flow</code> is the opposite sign. Realized P&L = exit + entry (both cash flows).
+      The log return uses absolute cash outlay so the ratio is well-defined:
+      \(\ln(|\text{exit_cf}| / |\text{entry_cf}|)\).
+      Annualized return = that log return × (calendar days held / 360).
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>entry_date</th>
+          <th>exit_date</th>
+          <th>entry_cf</th>
+          <th>exit_cf</th>
+          <th>P&L</th>
+          <th>return</th>
+          <th>days</th>
+          <th>ann_rtrn</th>
+          <th>win?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>2026-01-06</td><td>2026-01-10</td><td>-10000</td><td>10250</td><td>250</td><td>0.0247</td><td>4</td><td>2.22</td><td>Y</td></tr>
+        <tr><td>2</td><td>2026-01-13</td><td>2026-01-17</td><td>-10000</td><td>9800</td><td>-200</td><td>-0.0202</td><td>4</td><td>-1.82</td><td>N</td></tr>
+        <tr><td>3</td><td>2026-01-20</td><td>2026-01-24</td><td>-10000</td><td>10400</td><td>400</td><td>0.0392</td><td>4</td><td>3.53</td><td>Y</td></tr>
+        <tr><td>4</td><td>2026-01-27</td><td>2026-01-31</td><td>-10000</td><td>9700</td><td>-300</td><td>-0.0305</td><td>4</td><td>-2.74</td><td>N</td></tr>
+        <tr><td>5</td><td>2026-02-03</td><td>2026-02-07</td><td>-10000</td><td>10100</td><td>100</td><td>0.0100</td><td>4</td><td>0.90</td><td>Y</td></tr>
+        <tr><td>6</td><td>2026-02-10</td><td>2026-02-14</td><td>-10000</td><td>9600</td><td>-400</td><td>-0.0408</td><td>4</td><td>-3.67</td><td>N</td></tr>
+        <tr><td>7</td><td>2026-02-17</td><td>2026-02-21</td><td>-10000</td><td>10300</td><td>300</td><td>0.0296</td><td>4</td><td>2.66</td><td>Y</td></tr>
+        <tr><td>8</td><td>2026-02-24</td><td>2026-02-28</td><td>-10000</td><td>9500</td><td>-500</td><td>-0.0513</td><td>4</td><td>-4.62</td><td>N</td></tr>
+        <tr><td>9</td><td>2026-03-03</td><td>2026-03-07</td><td>-10000</td><td>10200</td><td>200</td><td>0.0198</td><td>4</td><td>1.78</td><td>Y</td></tr>
+        <tr><td>10</td><td>2026-03-10</td><td>2026-03-14</td><td>-10000</td><td>9900</td><td>-100</td><td>-0.0101</td><td>4</td><td>-0.91</td><td>N</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      Cumulative P&L after 10 trades: +250 −200 +400 −300 +100 −400 +300 −500 +200 −100 = <strong>+750</strong> on $100k notional exposure.
+      Win rate = 5/10 = 50%. Mean log return ≈ −0.0019. Mean ann_rtrn ≈ −0.27.
+      Assume the trader’s pre-live thesis expected a 60% win rate and positive expectancy of roughly +150 per trade (so μ_return ≈ +0.015).
+    </div>
+
+    <h2>1. Hoeffding Bound (Egger & Vestal)</h2>
+    <p>
+      Hoeffding’s inequality gives a distribution-free upper bound on the probability that the sample mean of \(N\) bounded observations deviates from the true mean \(\mu\) by more than tolerance \(t\):
+    </p>
+    <div class="eq">$$P(|\bar X - \mu| \ge t) \le 2\exp(-2Nt^2)$$</div>
+    <p>
+      (for variables scaled to [0,1]). A falling bound is evidence against the original regime / expected performance.
+    </p>
+    <h3>Cookbook</h3>
+    <ol>
+      <li>Choose a bounded performance metric. Here we use win indicator \(X_i \in \{0,1\}\), \(\mu = 0.60\) (expected win rate).</li>
+      <li>After each new closed trade update \(N\) and \(\bar X =\) observed win rate.</li>
+      <li>Compute \(t = \mu - \bar X\) (one-sided underperformance) or absolute.</li>
+      <li>Evaluate the bound \(p = \exp(-2Nt^2)\) (one-sided form).</li>
+      <li>Pre-commit to thresholds: e.g. \(p < 0.25\) → reduce size; \(p < 0.10\) → halt and review.</li>
+    </ol>
+    <h3>Applied to the toy blotter</h3>
+    <p>
+      After all 10 trades, observed win rate \(\bar X = 0.50\), \(t = 0.10\), \(N=10\):
+    </p>
+    <div class="eq">$$p \le \exp(-2 \cdot 10 \cdot 0.01) = \exp(-0.2) \approx 0.819$$</div>
+    <p>
+      The bound is still high — the data are still consistent with the original 60% expectation. After only 10 trades the test has little power. Continue.
+      If the next 10 trades also produced only a 40% win rate, \(N=20\), \(t=0.20\), the bound would drop to \(\exp(-1.6) \approx 0.20\), crossing a typical soft threshold.
+    </p>
+
+    <h2>2. CUSUM Control Chart</h2>
+    <p>
+      The cumulative-sum (CUSUM) chart, introduced by Page (1954) for industrial quality control, is the standard sequential test for a persistent shift in the mean. It is widely used by quant desks to monitor manager or strategy edge decay.
+    </p>
+    <div class="eq">$$S_t = \max\bigl(0,\ S_{t-1} + (k - x_t)/\sigma\bigr)$$</div>
+    <p>
+      Alarm when \(S_t > h\). Typical calibration: \(k = 0.5\sigma\), \(h = 4\sigma\) or \(5\sigma\).
+    </p>
+    <h3>Cookbook</h3>
+    <ol>
+      <li>Set reference mean \(\mu_0\) (expected P&L or return per trade) and estimate \(\sigma\) from back-test or early live data.</li>
+      <li>Choose allowance \(k\) (usually \(0.5\sigma\)) and threshold \(h\) (usually \(4\)–\(5\sigma\)).</li>
+      <li>After every closed trade update the one-sided CUSUM for underperformance.</li>
+      <li>When \(S_t\) crosses \(h\), the process mean is judged to have shifted; halt or cut risk and investigate.</li>
+    </ol>
+    <h3>Applied to the toy blotter</h3>
+    <p>
+      Suppose \(\mu_0 = +150\) P&L, \(\sigma \approx 300\). Then \(k = 150\). Running the lower CUSUM on the P&L series:
+    </p>
+    <ul>
+      <li>After trade 6 (cumulative evidence of losses) \(S\) begins to climb.</li>
+      <li>By trade 8 the statistic has crossed a \(h=4\sigma\) threshold in this short sample.</li>
+    </ul>
+    <p>
+      Signal: underperformance has accumulated beyond the allowance. Soft action (halve size) or hard action (pause) depending on the pre-set \(h\).
+    </p>
+
+    <h2>3. High-Water-Mark Drawdown Rules</h2>
+    <p>
+      The most common industry overlay. Track the equity curve of the matched blotter and its high-water mark (HWM).
+    </p>
+    <h3>Cookbook</h3>
+    <ol>
+      <li>Maintain cumulative P&L (or equity) and its running maximum (HWM).</li>
+      <li>Drawdown = HWM − current equity.</li>
+      <li>Pre-commit to absolute or relative limits written before live trading:
+        <ul>
+          <li>Hard stop: drawdown > 1.5× the maximum drawdown seen in the validated back-test, or a fixed fraction of allocated capital.</li>
+          <li>Time stop: underwater longer than 1.5× the longest underwater period in the back-test.</li>
+        </ul>
+      </li>
+      <li>Breach → halt new risk and review; do not renegotiate the threshold while underwater.</li>
+    </ol>
+    <h3>Applied to the toy blotter</h3>
+    <p>
+      Running cumulative P&L: 250, 50, 450, 150, 250, −150, 150, −350, −150, −250.
+    </p>
+    <p>
+      High-water mark reaches +450 after trade 3. Subsequent peak-to-trough drawdown is 450 − (−350) = 800 after trade 8.
+      If the back-test maximum drawdown on a comparable sample was 500, the live path has already exceeded 1.5×. Hard stop triggered.
+    </p>
+
+    <h2>4. Rolling Expectancy / Percentile Bands</h2>
+    <p>
+      Compute a rolling statistic (mean P&L, profit factor, win rate, or Sharpe) on the last \(N\) trades and compare it to the distribution of the same statistic on rolling windows of the back-test.
+    </p>
+    <h3>Cookbook</h3>
+    <ol>
+      <li>Choose window length \(N\) (typically 30–50 trades once you have them; smaller for illustration).</li>
+      <li>From the back-test, compute the 5th / 10th percentile of the rolling statistic.</li>
+      <li>In live trading, after each close update the rolling value.</li>
+      <li>Soft breach (cut size) when live falls below the 10th percentile; hard breach (halt) when it is negative or stays outside for two consecutive windows.</li>
+    </ol>
+    <h3>Applied to the toy blotter</h3>
+    <p>
+      Using a rolling window of the last 5 trades, mean P&L after trade 10 is (300 −500 +200 −100 + …) ≈ −40. If the back-test 10th percentile of 5-trade mean P&L was +20, the live window has already breached the soft band.
+    </p>
+
+    <div class="note">
+      <strong>Take-away for today.</strong> No single method is “the” answer. Hoeffding is assumption-light and elegant. CUSUM is the industrial sequential standard. Drawdown rules are what risk committees actually enforce. Rolling percentiles are what most systematic desks track weekly. Implement at least two, write the thresholds before you go live, and update them from the matched blotter after every close.
+    </div>
+  </div>
+</div>
+<script src="site.js"></script>
+</body>
+</html>
